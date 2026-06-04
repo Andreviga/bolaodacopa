@@ -22,6 +22,25 @@ Abra `bolao_copa2026.html` no navegador.
 
 O app usa uma unica linha da tabela `bolao_state` para guardar o estado completo do bolao em JSON.
 
+## Hospedagem recomendada: Vercel
+
+Use o GitHub apenas como repositorio e a Vercel para hospedar o app.
+
+1. Acesse `https://vercel.com`
+2. Clique em `Add New...` > `Project`
+3. Importe o repositorio `Andreviga/bolaodacopa`
+4. Em `Project Name`, use `bolaodacopa`
+5. Em `Framework Preset`, escolha `Other`
+6. Deixe `Build Command` vazio
+7. Deixe `Output Directory` vazio
+8. Clique em `Deploy`
+
+Se o nome do projeto for `bolaodacopa`, o link final deve ficar:
+
+`https://bolaodacopa.vercel.app/`
+
+O arquivo `vercel.json` ja configura cache baixo para HTML, `sw.js` e `backend-config.js`, evitando que uma versao antiga fique presa no navegador.
+
 ## Hospedagem no GitHub Pages
 
 Depois de enviar o repositorio para o GitHub:
