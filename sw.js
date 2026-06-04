@@ -1,4 +1,4 @@
-const CACHE_NAME = "bolao-copa-2026-v1";
+const CACHE_NAME = "bolao-copa-2026-v2";
 const APP_SHELL = [
   "./",
   "index.html",
@@ -27,24 +27,29 @@ self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
 
   const request = event.request;
+  const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
+
+  if (!sameOrigin || url.pathname.endsWith("/backend-config.js")) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
+
+  const networkFirst = () => fetch(request, { cache: "no-store" }).then(response => {
+    const copy = response.clone();
+    caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
+    return response;
+  });
+
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put("./", copy));
-          return response;
-        })
+      networkFirst()
         .catch(() => caches.match("./").then(response => response || caches.match("bolao_copa2026.html")))
     );
     return;
   }
 
   event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request).then(response => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
-      return response;
-    }))
+    networkFirst().catch(() => caches.match(request))
   );
 });

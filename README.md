@@ -7,9 +7,20 @@ Aplicativo web familiar para palpites da Copa do Mundo 2026.
 Abra `bolao_copa2026.html` no navegador.
 
 - Senha inicial do admin: `copa2026`
-- Os dados ficam salvos no `localStorage` do navegador
-- Nao precisa de servidor ou banco de dados
+- Sem backend configurado, os dados ficam salvos no `localStorage` do navegador
+- Com Supabase configurado, os dados sincronizam entre os celulares
 - No celular, pode ser instalado como aplicativo pela tela inicial
+
+## Backend simples com Supabase
+
+1. Crie um projeto no Supabase
+2. Abra o SQL Editor
+3. Rode o conteudo de `supabase-setup.sql`
+4. Copie a Project URL e a anon/public key
+5. Preencha `backend-config.js`
+6. Envie a alteracao para o GitHub
+
+O app usa uma unica linha da tabela `bolao_state` para guardar o estado completo do bolao em JSON.
 
 ## Hospedagem no GitHub Pages
 

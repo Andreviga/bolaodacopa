@@ -10,6 +10,7 @@
   <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/app-icon.svg">
   <title>Bolao da Copa 2026</title>
+  <script src="backend-config.js"></script>
   <style>
     :root {
       --bg: #0A0E1A;
@@ -393,9 +394,18 @@
   </div>
 
   <script>
+    const APP_VERSION = "2026.06.03.2";
     const STORE_KEY = "bolaoCopa2026.v1";
+    const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
     const TZ_OFFSET = "-03:00";
+    const DEFAULT_BACKEND_CONFIG = {
+      provider: "supabase",
+      url: "",
+      anonKey: "",
+      table: "bolao_state",
+      rowId: "copa2026-familia"
+    };
 
     const GROUP_GAMES = [
       ["A1","A","11/06/2026","16:00","Mexico","Africa do Sul"],["A2","A","12/06/2026","13:00","Coreia do Sul","Republica Tcheca"],["A3","A","17/06/2026","16:00","Mexico","Coreia do Sul"],["A4","A","17/06/2026","19:00","Africa do Sul","Republica Tcheca"],["A5","A","22/06/2026","22:00","Republica Tcheca","Mexico"],["A6","A","22/06/2026","22:00","Africa do Sul","Coreia do Sul"],
@@ -427,9 +437,51 @@
       session: JSON.parse(localStorage.getItem("bolaoSession") || "null"),
       view: "login",
       filter: "all",
-      query: ""
+      query: "",
+      backend: {
+        config: getBackendConfig(),
+        status: "local",
+        error: "",
+        lastSync: "",
+        saveTimer: null,
+        pollTimer: null
+      }
     };
     let deferredInstallPrompt = null;
+
+    function getBackendConfig() {
+      let localConfig = {};
+      try {
+        localConfig = JSON.parse(localStorage.getItem(BACKEND_CONFIG_KEY) || "{}");
+      } catch {
+        localConfig = {};
+      }
+      return {
+        ...DEFAULT_BACKEND_CONFIG,
+        ...(window.BOLAO_BACKEND || {}),
+        ...localConfig
+      };
+    }
+
+    function backendIsConfigured() {
+      const cfg = state.backend?.config || {};
+      return cfg.provider === "supabase" && !!cfg.url && !!cfg.anonKey && !!cfg.table && !!cfg.rowId;
+    }
+
+    function backendHeaders(extra = {}) {
+      const cfg = state.backend.config;
+      return {
+        apikey: cfg.anonKey,
+        Authorization: `Bearer ${cfg.anonKey}`,
+        "Content-Type": "application/json",
+        ...extra
+      };
+    }
+
+    function backendBaseUrl() {
+      const cfg = state.backend.config;
+      return `${cfg.url.replace(/\/$/, "")}/rest/v1/${encodeURIComponent(cfg.table)}`;
+    }
 
     function toIso(date, time) {
       const [d,m,y] = date.split("/");
@@ -454,6 +506,7 @@
 
     function defaultData() {
       return {
+        meta: { version: APP_VERSION, updatedAt: new Date().toISOString() },
         participants: ["Ana", "Bruno", "Carla", "Diego", "Eva"],
         adminPassword: DEFAULT_PASSWORD,
         games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
@@ -471,6 +524,7 @@
         return {
           ...base,
           ...parsed,
+          meta: { ...base.meta, ...(parsed.meta || {}) },
           games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
           predictions: parsed.predictions || {}
         };
@@ -479,8 +533,122 @@
       }
     }
 
-    function saveData() {
+    function touchData() {
+      state.data.meta ||= {};
+      state.data.meta.version = APP_VERSION;
+      state.data.meta.updatedAt = new Date().toISOString();
+    }
+
+    function saveData(options = {}) {
+      if (!options.skipTouch) touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      if (!options.localOnly) scheduleBackendSave();
+    }
+
+    function dataTimestamp(data) {
+      const value = data?.meta?.updatedAt;
+      const time = value ? Date.parse(value) : 0;
+      return Number.isFinite(time) ? time : 0;
+    }
+
+    async function initBackend() {
+      state.backend.config = getBackendConfig();
+      clearInterval(state.backend.pollTimer);
+
+      if (!backendIsConfigured()) {
+        state.backend.status = "local";
+        state.backend.error = "";
+        state.backend.lastSync = "";
+        renderBackendOnly();
+        return;
+      }
+
+      state.backend.status = "syncing";
+      state.backend.error = "";
+      renderBackendOnly();
+      await pullBackendData({ pushIfMissing: true });
+      state.backend.pollTimer = setInterval(() => pullBackendData(), 30000);
+    }
+
+    function scheduleBackendSave() {
+      if (!state.backend || !backendIsConfigured()) return;
+      clearTimeout(state.backend.saveTimer);
+      state.backend.status = "saving";
+      renderBackendOnly();
+      state.backend.saveTimer = setTimeout(() => pushBackendData(), 800);
+    }
+
+    async function pullBackendData(options = {}) {
+      if (!backendIsConfigured()) return;
+      try {
+        const cfg = state.backend.config;
+        const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
+        const response = await fetch(url, {
+          headers: backendHeaders({ Accept: "application/json" }),
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error(`Supabase ${response.status}`);
+        const rows = await response.json();
+        const remoteData = rows[0]?.data;
+
+        if (!remoteData) {
+          if (options.pushIfMissing) await pushBackendData();
+          else {
+            state.backend.status = "online";
+            state.backend.lastSync = new Date().toISOString();
+          }
+          renderBackendOnly();
+          return;
+        }
+
+        if (dataTimestamp(remoteData) > dataTimestamp(state.data)) {
+          state.data = remoteData;
+          localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          state.backend.status = "online";
+          state.backend.lastSync = new Date().toISOString();
+          render();
+          return;
+        }
+
+        if (options.pushIfMissing && dataTimestamp(state.data) > dataTimestamp(remoteData)) {
+          await pushBackendData();
+          return;
+        }
+
+        state.backend.status = "online";
+        state.backend.lastSync = new Date().toISOString();
+        renderBackendOnly();
+      } catch (error) {
+        state.backend.status = "offline";
+        state.backend.error = error.message || "erro de sincronizacao";
+        renderBackendOnly();
+      }
+    }
+
+    async function pushBackendData() {
+      if (!backendIsConfigured()) return;
+      try {
+        const cfg = state.backend.config;
+        const response = await fetch(`${backendBaseUrl()}?on_conflict=id`, {
+          method: "POST",
+          headers: backendHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+          body: JSON.stringify({ id: cfg.rowId, data: state.data }),
+          cache: "no-store"
+        });
+        if (!response.ok) throw new Error(`Supabase ${response.status}`);
+        state.backend.status = "online";
+        state.backend.error = "";
+        state.backend.lastSync = new Date().toISOString();
+        renderBackendOnly();
+      } catch (error) {
+        state.backend.status = "offline";
+        state.backend.error = error.message || "erro ao salvar";
+        renderBackendOnly();
+      }
+    }
+
+    function renderBackendOnly() {
+      if (state.session?.role === "admin" && state.view === "admin") renderAdmin();
     }
 
     function setSession(session) {
@@ -839,6 +1007,41 @@
         </div>`;
     }
 
+    function backendStatusLabel() {
+      if (!backendIsConfigured()) return "Modo local: dados salvos so neste navegador.";
+      const statusMap = {
+        syncing: "Sincronizando...",
+        saving: "Salvando no banco...",
+        online: "Online e sincronizado.",
+        offline: `Offline: ${state.backend.error || "sem conexao com o banco"}`,
+        local: "Modo local."
+      };
+      const last = state.backend.lastSync ? ` Ultima sync: ${dateLabel(state.backend.lastSync)}.` : "";
+      return `${statusMap[state.backend.status] || "Backend configurado."}${last}`;
+    }
+
+    function backendPanelHtml() {
+      const cfg = state.backend.config;
+      return `
+        <div class="panel">
+          <h2>Backend compartilhado</h2>
+          <p class="mini">${escapeHtml(backendStatusLabel())}</p>
+          <div class="form-row">
+            <input id="backendUrl" placeholder="Supabase URL" value="${escapeHtml(cfg.url)}">
+            <input id="backendAnonKey" type="password" placeholder="Supabase anon key" value="${escapeHtml(cfg.anonKey)}">
+          </div>
+          <div class="form-row">
+            <input id="backendTable" placeholder="Tabela" value="${escapeHtml(cfg.table)}">
+            <input id="backendRowId" placeholder="ID do bolao" value="${escapeHtml(cfg.rowId)}">
+          </div>
+          <div class="actions">
+            <button class="success" onclick="saveBackendConfigNow()">Salvar config neste navegador</button>
+            <button onclick="syncNow()">Sincronizar agora</button>
+          </div>
+          <p class="mini">Para valer em todos os celulares, preencha tambem o arquivo backend-config.js e publique no GitHub.</p>
+        </div>`;
+    }
+
     function renderAdmin() {
       if (state.session?.role !== "admin") return;
       const options = state.data.games.map(g => `<option value="${g.id}">${g.id} · ${escapeHtml(g.homeTeam)} x ${escapeHtml(g.awayTeam)}</option>`).join("");
@@ -860,6 +1063,7 @@
               <button onclick="changePassword()">Salvar senha</button>
             </div>
           </div>
+          ${backendPanelHtml()}
           <div class="panel">
             <h2>Resultado real</h2>
             <select id="adminGame" onchange="fillAdminGame()">${options}</select>
@@ -960,6 +1164,26 @@
       state.data.adminPassword = document.getElementById("newPassword").value || DEFAULT_PASSWORD;
       saveData();
       toast("Senha salva");
+    }
+
+    function saveBackendConfigNow() {
+      const config = {
+        provider: "supabase",
+        url: document.getElementById("backendUrl").value.trim(),
+        anonKey: document.getElementById("backendAnonKey").value.trim(),
+        table: document.getElementById("backendTable").value.trim() || DEFAULT_BACKEND_CONFIG.table,
+        rowId: document.getElementById("backendRowId").value.trim() || DEFAULT_BACKEND_CONFIG.rowId
+      };
+      localStorage.setItem(BACKEND_CONFIG_KEY, JSON.stringify(config));
+      state.backend.config = getBackendConfig();
+      toast("Config do backend salva");
+      initBackend();
+    }
+
+    function syncNow() {
+      if (!backendIsConfigured()) return toast("Configure o backend primeiro");
+      pullBackendData({ pushIfMissing: true });
+      toast("Sincronizando");
     }
 
     function resetUserPredictions() {
@@ -1073,8 +1297,17 @@
     });
 
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("sw.js").catch(() => {});
+        navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(registration => {
+          registration.update();
+          setInterval(() => registration.update(), 60 * 60 * 1000);
+        }).catch(() => {});
       });
     }
 
@@ -1083,6 +1316,7 @@
     }, 60000);
 
     if (state.session) state.view = "dashboard";
+    initBackend();
     scheduleNotifications();
     render();
   </script>
