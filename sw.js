@@ -1,10 +1,11 @@
-const CACHE_NAME = "bolao-copa-2026-v4";
+const CACHE_NAME = "bolao-copa-2026-v5";
 const APP_SHELL = [
   "./",
   "index.html",
   "bolao_copa2026.html",
   "manifest.webmanifest",
-  "icons/app-icon.svg"
+  "icons/app-icon.svg",
+  "social-preview.png"
 ];
 
 self.addEventListener("install", event => {
