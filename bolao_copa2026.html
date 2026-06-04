@@ -83,15 +83,15 @@
     }
     button:hover { transform: translateY(-1px); }
     button:disabled { cursor: not-allowed; opacity: .55; transform: none; }
-    input, select {
+    input, select, textarea {
       width: 100%;
-      min-height: 44px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 0 12px;
       color: var(--text);
       background: var(--panel-2);
     }
+    input, select { min-height: 44px; padding: 0 12px; }
+    textarea { min-height: 82px; padding: 10px 12px; resize: vertical; }
     input[type="number"] { text-align: center; }
 
     .app {
@@ -339,6 +339,21 @@
     .score-controls input { padding: 0; font-size: 1.2rem; font-weight: 900; }
     .mini { font-size: .84rem; color: var(--muted); }
     .form-row { display: grid; gap: 10px; margin: 10px 0; }
+    .rule-score-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin: 10px 0 16px;
+    }
+    .rule-editor-list { display: grid; gap: 10px; }
+    .rule-editor-item {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+    }
     .admin-grid { display: grid; gap: 14px; }
     .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
     table { width: 100%; border-collapse: collapse; min-width: 560px; }
@@ -403,6 +418,7 @@
       .grid.three { grid-template-columns: repeat(3, 1fr); }
       .toolbar { grid-template-columns: 1fr 300px; align-items: center; }
       .form-row { grid-template-columns: 1fr 1fr; align-items: end; }
+      .rule-score-grid { grid-template-columns: 1fr 1fr; }
       .admin-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (min-width: 980px) {
@@ -466,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.11";
+    const APP_VERSION = "2026.06.03.12";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -590,6 +606,48 @@
       };
     }
 
+    function defaultRules() {
+      return {
+        scoring: {
+          groupExact: 10,
+          groupResultTotal: 7,
+          groupResult: 5,
+          knockoutExact: 12,
+          knockoutResultTotal: 9,
+          knockoutResult: 6,
+          knockoutDrawAdvanced: 4,
+          knockoutAdvanced: 2,
+          overtimeBonus: 2
+        },
+        summary: [
+          { id: "deadline", title: "Palpite fecha 1h antes", description: "Depois do prazo, o jogo fica bloqueado e quem nao palpitou recebe 0 ponto." },
+          { id: "groups", title: "Fase de grupos", description: "Placar exato, resultado com total de gols e resultado correto valem pontos diferentes." },
+          { id: "knockout", title: "Mata-mata", description: "O palpite vale para os 90 minutos; tambem marque prorrogacao e quem passa." },
+          { id: "ranking", title: "Ranking", description: "Empate no ranking desempata por placares exatos, acertos e ordem alfabetica." }
+        ]
+      };
+    }
+
+    function mergeRules(savedRules = {}) {
+      const base = defaultRules();
+      return {
+        scoring: { ...base.scoring, ...(savedRules.scoring || {}) },
+        summary: Array.isArray(savedRules.summary) && savedRules.summary.length ? savedRules.summary : base.summary
+      };
+    }
+
+    const SCORING_FIELDS = [
+      { key: "groupExact", label: "Grupo: placar exato" },
+      { key: "groupResultTotal", label: "Grupo: resultado + total de gols" },
+      { key: "groupResult", label: "Grupo: resultado correto" },
+      { key: "knockoutExact", label: "Mata-mata: placar exato" },
+      { key: "knockoutResultTotal", label: "Mata-mata: resultado + total" },
+      { key: "knockoutResult", label: "Mata-mata: resultado nos 90 min" },
+      { key: "knockoutDrawAdvanced", label: "Mata-mata: empate + quem passa" },
+      { key: "knockoutAdvanced", label: "Mata-mata: so quem passa" },
+      { key: "overtimeBonus", label: "Bonus: acertou prorrogacao" }
+    ];
+
     function defaultData() {
       return {
         meta: { version: APP_VERSION, updatedAt: new Date().toISOString() },
@@ -598,6 +656,7 @@
         games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
         predictions: {},
         participantPasswords: {},
+        rules: defaultRules(),
         settings: { theme: "dark" }
       };
     }
@@ -614,7 +673,8 @@
           meta: { ...base.meta, ...(parsed.meta || {}) },
           games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
           predictions: parsed.predictions || {},
-          participantPasswords: parsed.participantPasswords || {}
+          participantPasswords: parsed.participantPasswords || {},
+          rules: mergeRules(parsed.rules)
         };
       } catch {
         return defaultData();
@@ -1017,6 +1077,25 @@
       return `${m}min`;
     }
 
+    function currentRules() {
+      state.data.rules = mergeRules(state.data.rules);
+      return state.data.rules;
+    }
+
+    function scoringRules() {
+      return currentRules().scoring;
+    }
+
+    function publicRulesHtml() {
+      const rules = currentRules().summary;
+      return `
+        <ul class="rule-list">
+          ${rules.map((rule, index) => `
+            <li><span class="rule-dot">${index + 1}</span><span><b>${escapeHtml(rule.title)}</b> ${escapeHtml(rule.description)}</span></li>
+          `).join("")}
+        </ul>`;
+    }
+
     function isPlaceholderTeam(name) {
       return /repescagem|grupo|vencedor|perdedor|adversario|colocado/i.test(normalizeTeamName(name));
     }
@@ -1116,23 +1195,24 @@
       const predSign = sign(pred.home - pred.away);
       const exact = real.home === pred.home && real.away === pred.away;
       const totalOk = real.home + real.away === pred.home + pred.away;
+      const score = scoringRules();
       let points = 0;
       let correct = 0;
 
       if (game.type === "group") {
-        if (exact) points = 10;
-        else if (realSign === predSign && totalOk) points = 7;
-        else if (realSign === predSign) points = 5;
+        if (exact) points = Number(score.groupExact) || 0;
+        else if (realSign === predSign && totalOk) points = Number(score.groupResultTotal) || 0;
+        else if (realSign === predSign) points = Number(score.groupResult) || 0;
         if (realSign === predSign) correct = 1;
       } else {
         const advancedOk = pred.advancedTeam && game.advancedTeam && pred.advancedTeam === game.advancedTeam;
-        if (exact) points = 12;
-        else if (realSign === predSign && totalOk) points = 9;
-        else if (realSign !== 0 && realSign === predSign) points = 6;
-        else if (realSign === 0 && predSign === 0 && advancedOk) points = 4;
-        else if (advancedOk) points = 2;
+        if (exact) points = Number(score.knockoutExact) || 0;
+        else if (realSign === predSign && totalOk) points = Number(score.knockoutResultTotal) || 0;
+        else if (realSign !== 0 && realSign === predSign) points = Number(score.knockoutResult) || 0;
+        else if (realSign === 0 && predSign === 0 && advancedOk) points = Number(score.knockoutDrawAdvanced) || 0;
+        else if (advancedOk) points = Number(score.knockoutAdvanced) || 0;
         if (realSign === predSign || advancedOk) correct = 1;
-        if (pred.overtime === true && game.wentOvertime === true) points += 2;
+        if (pred.overtime === true && game.wentOvertime === true) points += Number(score.overtimeBonus) || 0;
       }
       return { points, exact: exact ? 1 : 0, correct };
     }
@@ -1204,12 +1284,7 @@
           <div class="front-info">
             <div class="panel">
               <h2>Regras rapidas</h2>
-              <ul class="rule-list">
-                <li><span class="rule-dot">1</span><span><b>Palpite fecha 1h antes</b> do inicio de cada jogo.</span></li>
-                <li><span class="rule-dot">2</span><span><b>Fase de grupos:</b> 10 pontos placar exato, 7 resultado + total de gols, 5 resultado.</span></li>
-                <li><span class="rule-dot">3</span><span><b>Mata-mata:</b> vale o placar dos 90 minutos; marque prorrogacao e quem passa.</span></li>
-                <li><span class="rule-dot">4</span><span><b>Ranking:</b> desempate por placares exatos, acertos e ordem alfabetica.</span></li>
-              </ul>
+              ${publicRulesHtml()}
             </div>
             <div class="panel install-box">
               <h2>Instalar aplicativo</h2>
@@ -1604,6 +1679,42 @@
         </div>`;
     }
 
+    function rulesPanelHtml() {
+      const rules = currentRules();
+      const scoring = rules.scoring;
+      const scoreInputs = SCORING_FIELDS.map(field => `
+        <label>${escapeHtml(field.label)}
+          <input id="score_${field.key}" type="number" min="0" step="1" value="${escapeHtml(scoring[field.key])}">
+        </label>
+      `).join("");
+      const summaryRows = rules.summary.map((rule, index) => `
+        <div class="rule-editor-item">
+          <input id="ruleTitle_${index}" maxlength="70" placeholder="Titulo da regra" value="${escapeHtml(rule.title)}">
+          <textarea id="ruleDescription_${index}" maxlength="260" placeholder="Detalhe da regra">${escapeHtml(rule.description)}</textarea>
+          <button class="danger" onclick="removeRule(${index})">Remover regra</button>
+        </div>
+      `).join("");
+      return `
+        <div class="panel">
+          <h2>Regras e pontuacao</h2>
+          <p class="mini">Tudo que for salvo aqui aparece na entrada do bolao e muda o calculo do ranking.</p>
+          <h3>Pontos</h3>
+          <div class="rule-score-grid">${scoreInputs}</div>
+          <h3>Regras publicas</h3>
+          <div class="rule-editor-list">${summaryRows}</div>
+          <h3>Criar regra</h3>
+          <div class="rule-editor-item">
+            <input id="newRuleTitle" maxlength="70" placeholder="Titulo da nova regra">
+            <textarea id="newRuleDescription" maxlength="260" placeholder="Explique a regra em uma frase curta"></textarea>
+            <button class="success" onclick="addRule()">Adicionar regra</button>
+          </div>
+          <div class="actions">
+            <button class="success" onclick="saveRulesConfig()">Salvar regras</button>
+            <button onclick="resetRulesToDefault()">Voltar ao padrao</button>
+          </div>
+        </div>`;
+    }
+
     function renderAdmin() {
       if (state.session?.role !== "admin") return;
       const options = state.data.games.map(g => `<option value="${g.id}">${g.id} · ${escapeHtml(teamText(g.homeTeam))} x ${escapeHtml(teamText(g.awayTeam))}</option>`).join("");
@@ -1629,6 +1740,7 @@
           </div>
           ${backendPanelHtml()}
           ${resultsPanelHtml()}
+          ${rulesPanelHtml()}
           <div class="panel">
             <h2>Resultado real</h2>
             <select id="adminGame" onchange="fillAdminGame()">${options}</select>
@@ -1824,6 +1936,95 @@
       delete state.data.participantPasswords[user];
       saveData();
       toast("Senha do participante resetada");
+      render();
+    }
+
+    function readRulePoints(field) {
+      const input = document.getElementById(`score_${field.key}`);
+      const raw = (input?.value || "").trim();
+      const value = Number(raw);
+      if (raw === "" || !Number.isInteger(value) || value < 0) {
+        toast(`Informe pontos validos em: ${field.label}`);
+        input?.focus();
+        return null;
+      }
+      if (value > 100) {
+        toast(`Confira os pontos de: ${field.label}`);
+        input?.focus();
+        return null;
+      }
+      return value;
+    }
+
+    function readRulesScoring() {
+      const scoring = {};
+      for (const field of SCORING_FIELDS) {
+        const value = readRulePoints(field);
+        if (value === null) return null;
+        scoring[field.key] = value;
+      }
+      return scoring;
+    }
+
+    function readRulesSummary() {
+      const currentSummary = currentRules().summary;
+      const summary = currentSummary.map((rule, index) => {
+        const title = (document.getElementById(`ruleTitle_${index}`)?.value || "").trim().replace(/\s+/g, " ");
+        const description = (document.getElementById(`ruleDescription_${index}`)?.value || "").trim().replace(/\s+/g, " ");
+        return title && description ? { id: rule.id || `rule-${index}`, title, description } : null;
+      }).filter(Boolean);
+      if (!summary.length) {
+        toast("Mantenha pelo menos uma regra publica");
+        return null;
+      }
+      return summary;
+    }
+
+    function saveRulesConfig() {
+      const scoring = readRulesScoring();
+      if (!scoring) return;
+      const summary = readRulesSummary();
+      if (!summary) return;
+      state.data.rules = mergeRules({ scoring, summary });
+      saveData();
+      toast("Regras salvas");
+      render();
+    }
+
+    function addRule() {
+      const title = (document.getElementById("newRuleTitle")?.value || "").trim().replace(/\s+/g, " ");
+      const description = (document.getElementById("newRuleDescription")?.value || "").trim().replace(/\s+/g, " ");
+      if (title.length < 3) return toast("Informe um titulo para a regra");
+      if (description.length < 8) return toast("Detalhe melhor a regra");
+      const scoring = readRulesScoring();
+      if (!scoring) return;
+      const summary = readRulesSummary();
+      if (!summary) return;
+      summary.push({ id: `custom-${Date.now()}`, title, description });
+      state.data.rules = mergeRules({ scoring, summary });
+      saveData();
+      toast("Regra adicionada");
+      render();
+    }
+
+    function removeRule(index) {
+      const rules = currentRules();
+      const rule = rules.summary[index];
+      if (!rule) return;
+      if (rules.summary.length <= 1) return toast("Mantenha pelo menos uma regra");
+      if (!confirm(`Remover a regra "${rule.title}"?`)) return;
+      rules.summary.splice(index, 1);
+      state.data.rules = mergeRules(rules);
+      saveData();
+      toast("Regra removida");
+      render();
+    }
+
+    function resetRulesToDefault() {
+      if (!confirm("Voltar para as regras e pontos padrao?")) return;
+      state.data.rules = defaultRules();
+      saveData();
+      toast("Regras padrao restauradas");
       render();
     }
 
