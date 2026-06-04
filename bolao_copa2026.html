@@ -466,7 +466,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.10";
+    const APP_VERSION = "2026.06.03.11";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -597,6 +597,7 @@
         adminPassword: DEFAULT_PASSWORD,
         games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
         predictions: {},
+        participantPasswords: {},
         settings: { theme: "dark" }
       };
     }
@@ -612,7 +613,8 @@
           ...parsed,
           meta: { ...base.meta, ...(parsed.meta || {}) },
           games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
-          predictions: parsed.predictions || {}
+          predictions: parsed.predictions || {},
+          participantPasswords: parsed.participantPasswords || {}
         };
       } catch {
         return defaultData();
@@ -1189,6 +1191,7 @@
       const el = document.getElementById("login");
       const lastParticipant = localStorage.getItem("bolaoLastParticipant") || "";
       const selectedName = state.data.participants.includes(lastParticipant) ? lastParticipant : (state.data.participants[0] || "");
+      const selectedHasPassword = hasParticipantPassword(selectedName);
       const participantOptions = state.data.participants.map(name => `
         <option value="${escapeHtml(name)}" ${name === selectedName ? "selected" : ""}>${escapeHtml(name)}</option>
       `).join("");
@@ -1230,7 +1233,10 @@
                   <div class="identity-confirm">
                     <span class="mini">Confira antes de entrar:</span>
                     <span class="identity-name" id="participantPreview">${escapeHtml(selectedName)}</span>
-                    <span class="mini">Todos os palpites feitos nesta sessao serao salvos para este participante.</span>
+                    <span class="mini" id="participantPasswordHint">${selectedHasPassword ? "Digite sua senha para confirmar que este nome e seu." : "Primeiro acesso: crie uma senha simples para vincular este nome a voce."}</span>
+                  </div>
+                  <div id="participantPasswordFields">
+                    ${participantPasswordFieldsHtml(selectedName)}
                   </div>
                   <div class="identity-actions">
                     <button class="success" onclick="confirmParticipantLogin()">Confirmar e entrar</button>
@@ -1256,10 +1262,48 @@
       setSession({ role: "admin", name: "Admin" });
     }
 
+    function hasParticipantPassword(name) {
+      return !!state.data.participantPasswords?.[name]?.hash;
+    }
+
+    function participantPasswordFieldsHtml(name) {
+      if (hasParticipantPassword(name)) {
+        return `
+          <label>Senha
+            <input id="participantPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha">
+          </label>`;
+      }
+      return `
+        <div class="form-row">
+          <label>Criar senha
+            <input id="participantPassword" type="password" autocomplete="new-password" placeholder="Minimo 4 caracteres">
+          </label>
+          <label>Confirmar senha
+            <input id="participantPasswordConfirm" type="password" autocomplete="new-password" placeholder="Repita a senha">
+          </label>
+        </div>`;
+    }
+
+    async function hashParticipantPassword(name, password) {
+      const text = `${normalizeTeamName(name)}::${password}`;
+      if (window.crypto?.subtle) {
+        const bytes = new TextEncoder().encode(text);
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
+      }
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+      return `fallback-${Math.abs(hash)}`;
+    }
+
     function updateParticipantPreview() {
       const select = document.getElementById("participantSelect");
       const preview = document.getElementById("participantPreview");
+      const hint = document.getElementById("participantPasswordHint");
+      const fields = document.getElementById("participantPasswordFields");
       if (select && preview) preview.textContent = select.value || "Selecione um nome";
+      if (select && hint) hint.textContent = hasParticipantPassword(select.value) ? "Digite sua senha para confirmar que este nome e seu." : "Primeiro acesso: crie uma senha simples para vincular este nome a voce.";
+      if (select && fields) fields.innerHTML = participantPasswordFieldsHtml(select.value);
     }
 
     function clearLastParticipant() {
@@ -1269,12 +1313,23 @@
       toast("Escolha o participante correto");
     }
 
-    function confirmParticipantLogin() {
+    async function confirmParticipantLogin() {
       const select = document.getElementById("participantSelect");
       const name = select?.value;
       if (!name || !state.data.participants.includes(name)) return toast("Escolha um participante valido");
-      const ok = confirm(`Entrar como ${name}?\n\nConfira se este e o seu nome antes de fazer palpites.`);
-      if (!ok) return;
+      const password = document.getElementById("participantPassword")?.value || "";
+      if (password.length < 4) return toast("Senha precisa ter pelo menos 4 caracteres");
+      state.data.participantPasswords ||= {};
+      const passwordHash = await hashParticipantPassword(name, password);
+      if (hasParticipantPassword(name)) {
+        if (passwordHash !== state.data.participantPasswords[name].hash) return toast("Senha do participante incorreta");
+      } else {
+        const confirmPassword = document.getElementById("participantPasswordConfirm")?.value || "";
+        if (password !== confirmPassword) return toast("As senhas nao conferem");
+        state.data.participantPasswords[name] = { hash: passwordHash, createdAt: new Date().toISOString() };
+        saveData();
+        toast("Senha criada");
+      }
       localStorage.setItem("bolaoLastParticipant", name);
       setSession({ role: "user", name });
     }
@@ -1552,7 +1607,7 @@
     function renderAdmin() {
       if (state.session?.role !== "admin") return;
       const options = state.data.games.map(g => `<option value="${g.id}">${g.id} · ${escapeHtml(teamText(g.homeTeam))} x ${escapeHtml(teamText(g.awayTeam))}</option>`).join("");
-      const participants = state.data.participants.map((p, index) => `<span class="pill">${escapeHtml(p)} <button title="Remover" class="danger" style="min-height:26px;padding:0 6px" onclick="removeParticipant(${index})">x</button></span>`).join(" ");
+      const participants = state.data.participants.map((p, index) => `<span class="pill">${escapeHtml(p)} ${hasParticipantPassword(p) ? "senha ok" : "sem senha"} <button title="Remover" class="danger" style="min-height:26px;padding:0 6px" onclick="removeParticipant(${index})">x</button></span>`).join(" ");
       document.getElementById("admin").innerHTML = `
         ${alertsHtml(collectAdminAlerts(), "Avisos do admin")}
         <div style="height:14px"></div>
@@ -1600,6 +1655,8 @@
               <select id="resetUser">${state.data.participants.map(p => `<option>${escapeHtml(p)}</option>`).join("")}</select>
               <button class="danger" onclick="resetUserPredictions()">Resetar palpites</button>
             </div>
+            <button onclick="resetParticipantPassword()">Resetar senha do participante</button>
+            <div style="height:8px"></div>
             <button class="primary" onclick="shareRanking()">Copiar ranking</button>
             <div style="height:8px"></div>
             <button onclick="viewGamePredictions()">Ver palpites do jogo selecionado</button>
@@ -1693,6 +1750,7 @@
       if (!confirm(`Remover ${name} e apagar os palpites dessa pessoa?`)) return;
       state.data.participants = state.data.participants.filter(p => p !== name);
       delete state.data.predictions[name];
+      if (state.data.participantPasswords) delete state.data.participantPasswords[name];
       saveData();
       render();
     }
@@ -1755,6 +1813,17 @@
       delete state.data.predictions[user];
       saveData();
       toast("Palpites resetados");
+      render();
+    }
+
+    function resetParticipantPassword() {
+      const user = document.getElementById("resetUser").value;
+      if (!user) return toast("Escolha um participante");
+      if (!hasParticipantPassword(user)) return toast("Este participante ainda nao tem senha");
+      if (!confirm(`Resetar a senha de ${user}? No proximo acesso a pessoa criara uma nova senha.`)) return;
+      delete state.data.participantPasswords[user];
+      saveData();
+      toast("Senha do participante resetada");
       render();
     }
 
