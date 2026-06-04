@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bolao da Copa 2026</title>
+  <style>
+    :root {
+      --bg: #0A0E1A;
+      --panel: #141926;
+      --panel-2: #101521;
+      --line: #2A3050;
+      --text: #F0F4FF;
+      --muted: #AAB3CF;
+      --gold: #FFD700;
+      --green: #00C896;
+      --red: #FF5C7A;
+      --blue: #4DA3FF;
+      --shadow: 0 18px 50px rgba(0, 0, 0, .28);
+      color-scheme: dark;
+      font-family: "DM Sans", "Nunito", system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-height: 100%; background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+        radial-gradient(circle at 18% 12%, rgba(0, 200, 150, .16), transparent 30%),
+        radial-gradient(circle at 86% 4%, rgba(255, 215, 0, .12), transparent 25%),
+        var(--bg);
+      background-size: 44px 44px, 44px 44px, auto, auto, auto;
+    }
+
+    body.light {
+      --bg: #F5F7FB;
+      --panel: #FFFFFF;
+      --panel-2: #EDF2F8;
+      --line: #D7DDEA;
+      --text: #111827;
+      --muted: #596274;
+      --shadow: 0 18px 50px rgba(20, 25, 38, .13);
+      color-scheme: light;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      color: var(--text);
+      background: var(--panel-2);
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { cursor: not-allowed; opacity: .55; transform: none; }
+    input, select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      color: var(--text);
+      background: var(--panel-2);
+    }
+    input[type="number"] { text-align: center; }
+
+    .app {
+      display: grid;
+      min-height: 100vh;
+      grid-template-rows: auto 1fr auto;
+    }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      background: rgba(10, 14, 26, .88);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+    body.light .topbar { background: rgba(245, 247, 251, .9); }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--gold), var(--green));
+      color: #0A0E1A;
+      font-weight: 900;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(1.1rem, 3.8vw, 1.65rem);
+      line-height: 1;
+      letter-spacing: 0;
+      font-family: Impact, "Barlow Condensed", "Arial Narrow", sans-serif;
+    }
+    .brand small { color: var(--muted); display: block; margin-top: 3px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .icon-btn { width: 44px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); }
+    .layout { display: grid; grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    main { width: min(1180px, 100%); margin: 0 auto; padding: 16px 16px 92px; }
+    .screen { display: none; animation: fade .2s ease; }
+    .screen.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+    .hero {
+      display: grid;
+      gap: 20px;
+      padding: 24px 0;
+      min-height: calc(100vh - 160px);
+      align-content: center;
+    }
+    .hero h2 {
+      margin: 0;
+      max-width: 760px;
+      font-family: Impact, "Barlow Condensed", "Arial Narrow", sans-serif;
+      font-size: clamp(2.4rem, 12vw, 6.2rem);
+      line-height: .92;
+      letter-spacing: 0;
+    }
+    .hero p { margin: 0; max-width: 620px; color: var(--muted); font-size: 1.05rem; }
+    .login-grid { display: grid; gap: 12px; grid-template-columns: 1fr; max-width: 760px; }
+    .quick-users { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+    .user-tile {
+      padding: 16px;
+      min-height: 74px;
+      border: 1px solid var(--line);
+      text-align: left;
+      background: var(--panel);
+    }
+    .primary { background: linear-gradient(135deg, var(--gold), #FFB000); color: #101521; font-weight: 800; }
+    .success { background: linear-gradient(135deg, var(--green), #11A8FF); color: #07131B; font-weight: 800; }
+    .danger { background: rgba(255, 92, 122, .15); color: var(--red); border: 1px solid rgba(255,92,122,.35); }
+
+    .grid { display: grid; gap: 14px; }
+    .grid.two { grid-template-columns: 1fr; }
+    .grid.three { grid-template-columns: 1fr; }
+    .panel {
+      background: rgba(20, 25, 38, .94);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    body.light .panel { background: rgba(255,255,255,.95); }
+    .panel h2, .panel h3 { margin: 0 0 12px; letter-spacing: 0; }
+    .panel h2 { font-size: 1.35rem; }
+    .panel h3 { font-size: 1rem; color: var(--muted); font-weight: 700; }
+    .stat-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+    }
+    .stat b { display: block; font-size: 1.55rem; }
+    .stat span { color: var(--muted); font-size: .88rem; }
+
+    .toolbar { display: grid; gap: 10px; margin: 0 0 14px; }
+    .tabs, .filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+    .tab, .chip { white-space: nowrap; padding: 0 14px; border: 1px solid var(--line); }
+    .tab.active, .chip.active { background: var(--gold); color: #101521; font-weight: 800; }
+    .game-list { display: grid; gap: 12px; }
+    .game-card {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .game-top { display: flex; justify-content: space-between; align-items: start; gap: 12px; color: var(--muted); font-size: .85rem; }
+    .match { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
+    .team { min-width: 0; font-weight: 800; font-size: 1.02rem; }
+    .team.away { text-align: right; }
+    .versus { color: var(--gold); font-weight: 900; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 26px;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+    .pill.good { color: var(--green); border-color: rgba(0,200,150,.45); }
+    .pill.warn { color: var(--gold); border-color: rgba(255,215,0,.45); }
+    .pill.bad { color: var(--red); border-color: rgba(255,92,122,.45); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .actions button { padding: 0 12px; }
+
+    .score-editor {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+      margin: 14px 0;
+    }
+    .score-box { display: grid; gap: 8px; justify-items: center; }
+    .score-controls { display: grid; grid-template-columns: 44px 64px 44px; gap: 7px; }
+    .score-controls input { padding: 0; font-size: 1.2rem; font-weight: 900; }
+    .mini { font-size: .84rem; color: var(--muted); }
+    .form-row { display: grid; gap: 10px; margin: 10px 0; }
+    .admin-grid { display: grid; gap: 14px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+    th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+    th { color: var(--muted); font-size: .82rem; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    .medal { font-size: 1.35rem; }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 78px;
+      z-index: 30;
+      transform: translateX(-50%) translateY(18px);
+      opacity: 0;
+      pointer-events: none;
+      padding: 12px 16px;
+      border-radius: 8px;
+      color: #07131B;
+      font-weight: 900;
+      background: var(--green);
+      transition: opacity .2s ease, transform .2s ease;
+      box-shadow: var(--shadow);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 12;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2px;
+      padding: 8px;
+      border-top: 1px solid var(--line);
+      background: rgba(10, 14, 26, .94);
+      backdrop-filter: blur(16px);
+    }
+    body.light .bottom-nav { background: rgba(245, 247, 251, .94); }
+    .nav-btn {
+      display: grid;
+      place-items: center;
+      min-height: 54px;
+      padding: 4px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: .72rem;
+      gap: 2px;
+    }
+    .nav-btn b { font-size: 1.05rem; line-height: 1; }
+    .nav-btn.active { color: var(--gold); }
+    .hidden { display: none !important; }
+
+    @media (min-width: 760px) {
+      .login-grid { grid-template-columns: 1fr 280px; align-items: start; }
+      .grid.two { grid-template-columns: 1.2fr .8fr; }
+      .grid.three { grid-template-columns: repeat(3, 1fr); }
+      .toolbar { grid-template-columns: 1fr 300px; align-items: center; }
+      .form-row { grid-template-columns: 1fr 1fr; align-items: end; }
+      .admin-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 980px) {
+      .app { grid-template-rows: auto 1fr; }
+      .layout { grid-template-columns: 220px 1fr; }
+      .sidebar {
+        position: sticky;
+        top: 67px;
+        display: grid;
+        align-content: start;
+        gap: 8px;
+        height: calc(100vh - 67px);
+        padding: 16px;
+        border-right: 1px solid var(--line);
+      }
+      .sidebar .nav-btn {
+        grid-template-columns: 26px 1fr;
+        justify-items: start;
+        text-align: left;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: .95rem;
+      }
+      .sidebar .nav-btn.active { background: var(--panel); }
+      .bottom-nav { display: none; }
+      main { padding-bottom: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">26</div>
+        <div>
+          <h1>Bolao da Copa</h1>
+          <small id="sessionLabel">Entre para jogar</small>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="notifyBtn" title="Ativar notificacoes">🔔</button>
+        <button class="icon-btn" id="themeBtn" title="Alternar tema">☀</button>
+        <button class="icon-btn" id="logoutBtn" title="Sair">↩</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav class="sidebar" id="sideNav"></nav>
+      <main>
+        <section id="login" class="screen active"></section>
+        <section id="dashboard" class="screen"></section>
+        <section id="games" class="screen"></section>
+        <section id="ranking" class="screen"></section>
+        <section id="admin" class="screen"></section>
+        <section id="performance" class="screen"></section>
+      </main>
+    </div>
+
+    <nav class="bottom-nav" id="bottomNav"></nav>
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script>
+    const STORE_KEY = "bolaoCopa2026.v1";
+    const DEFAULT_PASSWORD = "copa2026";
+    const TZ_OFFSET = "-03:00";
+
+    const GROUP_GAMES = [
+      ["A1","A","11/06/2026","16:00","Mexico","Africa do Sul"],["A2","A","12/06/2026","13:00","Coreia do Sul","Republica Tcheca"],["A3","A","17/06/2026","16:00","Mexico","Coreia do Sul"],["A4","A","17/06/2026","19:00","Africa do Sul","Republica Tcheca"],["A5","A","22/06/2026","22:00","Republica Tcheca","Mexico"],["A6","A","22/06/2026","22:00","Africa do Sul","Coreia do Sul"],
+      ["B1","B","12/06/2026","19:00","Canada","Catar"],["B2","B","12/06/2026","22:00","Suica","Italia"],["B3","B","18/06/2026","13:00","Canada","Suica"],["B4","B","18/06/2026","16:00","Catar","Italia"],["B5","B","23/06/2026","22:00","Italia","Canada"],["B6","B","23/06/2026","22:00","Catar","Suica"],
+      ["C1","C","13/06/2026","19:00","Brasil","Marrocos"],["C2","C","13/06/2026","22:00","Haiti","Escocia"],["C3","C","19/06/2026","16:00","Brasil","Haiti"],["C4","C","19/06/2026","19:00","Marrocos","Escocia"],["C5","C","24/06/2026","22:00","Escocia","Brasil"],["C6","C","24/06/2026","22:00","Haiti","Marrocos"],
+      ["D1","D","12/06/2026","16:00","Estados Unidos","Paraguai"],["D2","D","13/06/2026","13:00","Australia","Turquia"],["D3","D","18/06/2026","19:00","Estados Unidos","Australia"],["D4","D","18/06/2026","22:00","Turquia","Paraguai"],["D5","D","24/06/2026","19:00","Paraguai","Australia"],["D6","D","24/06/2026","19:00","Turquia","Estados Unidos"],
+      ["E1","E","14/06/2026","16:00","Alemanha","Curacao"],["E2","E","14/06/2026","19:00","Costa do Marfim","Equador"],["E3","E","20/06/2026","13:00","Alemanha","Costa do Marfim"],["E4","E","20/06/2026","16:00","Curacao","Equador"],["E5","E","25/06/2026","19:00","Equador","Alemanha"],["E6","E","25/06/2026","19:00","Curacao","Costa do Marfim"],
+      ["F1","F","14/06/2026","22:00","Holanda","Japao"],["F2","F","15/06/2026","13:00","Tunisia","Ucrania"],["F3","F","20/06/2026","19:00","Holanda","Tunisia"],["F4","F","20/06/2026","22:00","Japao","Ucrania"],["F5","F","25/06/2026","22:00","Ucrania","Holanda"],["F6","F","25/06/2026","22:00","Japao","Tunisia"],
+      ["G1","G","15/06/2026","16:00","Belgica","Egito"],["G2","G","15/06/2026","19:00","Ira","Nova Zelandia"],["G3","G","21/06/2026","13:00","Belgica","Ira"],["G4","G","21/06/2026","16:00","Egito","Nova Zelandia"],["G5","G","26/06/2026","16:00","Nova Zelandia","Belgica"],["G6","G","26/06/2026","16:00","Egito","Ira"],
+      ["H1","H","15/06/2026","22:00","Espanha","Cabo Verde"],["H2","H","16/06/2026","13:00","Arabia Saudita","Uruguai"],["H3","H","21/06/2026","19:00","Espanha","Arabia Saudita"],["H4","H","21/06/2026","22:00","Cabo Verde","Uruguai"],["H5","H","26/06/2026","19:00","Uruguai","Espanha"],["H6","H","26/06/2026","19:00","Cabo Verde","Arabia Saudita"],
+      ["I1","I","16/06/2026","16:00","Franca","Senegal"],["I2","I","16/06/2026","19:00","Noruega","Repescagem 2"],["I3","I","22/06/2026","13:00","Franca","Noruega"],["I4","I","22/06/2026","16:00","Senegal","Repescagem 2"],["I5","I","27/06/2026","16:00","Repescagem 2","Franca"],["I6","I","27/06/2026","16:00","Senegal","Noruega"],
+      ["J1","J","16/06/2026","22:00","Argentina","Argelia"],["J2","J","17/06/2026","13:00","Austria","Jordania"],["J3","J","22/06/2026","19:00","Argentina","Austria"],["J4","J","22/06/2026","22:00","Argelia","Jordania"],["J5","J","27/06/2026","19:00","Jordania","Argentina"],["J6","J","27/06/2026","19:00","Argelia","Austria"],
+      ["K1","K","17/06/2026","22:00","Portugal","Uzbequistao"],["K2","K","18/06/2026","13:00","Colombia","Repescagem 1"],["K3","K","23/06/2026","13:00","Portugal","Colombia"],["K4","K","23/06/2026","16:00","Uzbequistao","Repescagem 1"],["K5","K","27/06/2026","22:00","Repescagem 1","Portugal"],["K6","K","27/06/2026","22:00","Uzbequistao","Colombia"],
+      ["L1","L","17/06/2026","16:00","Inglaterra","Croacia"],["L2","L","17/06/2026","19:00","Gana","Panama"],["L3","L","23/06/2026","19:00","Inglaterra","Gana"],["L4","L","23/06/2026","22:00","Croacia","Panama"],["L5","L","28/06/2026","16:00","Panama","Inglaterra"],["L6","L","28/06/2026","16:00","Croacia","Gana"]
+    ];
+
+    const KNOCKOUTS = [
+      ["R32-01","Rodada de 32","01/07/2026","13:00","1o Grupo A","2o Grupo B"],["R32-02","Rodada de 32","01/07/2026","16:00","1o Grupo C","2o Grupo D"],["R32-03","Rodada de 32","01/07/2026","19:00","1o Grupo E","2o Grupo F"],["R32-04","Rodada de 32","01/07/2026","22:00","1o Grupo G","2o Grupo H"],
+      ["R32-05","Rodada de 32","02/07/2026","13:00","1o Grupo I","2o Grupo J"],["R32-06","Rodada de 32","02/07/2026","16:00","1o Grupo K","2o Grupo L"],["R32-07","Rodada de 32","02/07/2026","19:00","1o Grupo B","2o Grupo A"],["R32-08","Rodada de 32","02/07/2026","22:00","1o Grupo D","2o Grupo C"],
+      ["R32-09","Rodada de 32","03/07/2026","13:00","1o Grupo F","2o Grupo E"],["R32-10","Rodada de 32","03/07/2026","16:00","1o Grupo H","2o Grupo G"],["R32-11","Rodada de 32","03/07/2026","19:00","1o Grupo J","2o Grupo I"],["R32-12","Rodada de 32","03/07/2026","22:00","1o Grupo L","2o Grupo K"],
+      ["R32-13","Rodada de 32","04/07/2026","13:00","3o colocado","Adversario definido"],["R32-14","Rodada de 32","04/07/2026","16:00","3o colocado","Adversario definido"],["R32-15","Rodada de 32","04/07/2026","19:00","3o colocado","Adversario definido"],["R32-16","Rodada de 32","04/07/2026","22:00","3o colocado","Adversario definido"],
+      ["OF-01","Oitavas","05/07/2026","16:00","Vencedor R32-01","Vencedor R32-02"],["OF-02","Oitavas","05/07/2026","20:00","Vencedor R32-03","Vencedor R32-04"],["OF-03","Oitavas","06/07/2026","16:00","Vencedor R32-05","Vencedor R32-06"],["OF-04","Oitavas","06/07/2026","20:00","Vencedor R32-07","Vencedor R32-08"],["OF-05","Oitavas","07/07/2026","16:00","Vencedor R32-09","Vencedor R32-10"],["OF-06","Oitavas","07/07/2026","20:00","Vencedor R32-11","Vencedor R32-12"],["OF-07","Oitavas","08/07/2026","16:00","Vencedor R32-13","Vencedor R32-14"],["OF-08","Oitavas","08/07/2026","20:00","Vencedor R32-15","Vencedor R32-16"],
+      ["QF-01","Quartas","10/07/2026","16:00","Vencedor OF-01","Vencedor OF-02"],["QF-02","Quartas","10/07/2026","20:00","Vencedor OF-03","Vencedor OF-04"],["QF-03","Quartas","11/07/2026","16:00","Vencedor OF-05","Vencedor OF-06"],["QF-04","Quartas","11/07/2026","20:00","Vencedor OF-07","Vencedor OF-08"],
+      ["SF-01","Semifinal","14/07/2026","20:00","Vencedor QF-01","Vencedor QF-02"],["SF-02","Semifinal","15/07/2026","20:00","Vencedor QF-03","Vencedor QF-04"],["3PL","3o lugar","18/07/2026","16:00","Perdedor SF-01","Perdedor SF-02"],["FIN","Final","19/07/2026","16:00","Vencedor SF-01","Vencedor SF-02"]
+    ];
+
+    const state = {
+      data: loadData(),
+      session: JSON.parse(localStorage.getItem("bolaoSession") || "null"),
+      view: "login",
+      filter: "all",
+      query: ""
+    };
+
+    function toIso(date, time) {
+      const [d,m,y] = date.split("/");
+      return `${y}-${m}-${d}T${time}:00${TZ_OFFSET}`;
+    }
+
+    function makeGame(row, knockout = false) {
+      return {
+        id: row[0],
+        group: knockout ? null : row[1],
+        phase: knockout ? row[1] : "Grupo " + row[1],
+        type: knockout ? "knockout" : "group",
+        homeTeam: row[4],
+        awayTeam: row[5],
+        datetime: toIso(row[2], row[3]),
+        result: null,
+        advancedTeam: null,
+        wentOvertime: false,
+        status: "pending"
+      };
+    }
+
+    function defaultData() {
+      return {
+        participants: ["Ana", "Bruno", "Carla", "Diego", "Eva"],
+        adminPassword: DEFAULT_PASSWORD,
+        games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
+        predictions: {},
+        settings: { theme: "dark" }
+      };
+    }
+
+    function loadData() {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return defaultData();
+      try {
+        const parsed = JSON.parse(raw);
+        const base = defaultData();
+        return {
+          ...base,
+          ...parsed,
+          games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
+          predictions: parsed.predictions || {}
+        };
+      } catch {
+        return defaultData();
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+    }
+
+    function setSession(session) {
+      state.session = session;
+      localStorage.setItem("bolaoSession", JSON.stringify(session));
+      state.view = session ? "dashboard" : "login";
+      render();
+    }
+
+    function sign(x) { return x > 0 ? 1 : x < 0 ? -1 : 0; }
+    function gameDeadline(game) { return new Date(game.datetime).getTime() - 60 * 60 * 1000; }
+    function isLocked(game) { return Date.now() >= gameDeadline(game); }
+    function getPred(user, gameId) { return state.data.predictions[user]?.[gameId] || null; }
+    function dateLabel(iso) {
+      return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+
+    function timeLeft(ms) {
+      if (ms <= 0) return "prazo encerrado";
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const d = Math.floor(h / 24);
+      if (d > 0) return `${d}d ${h % 24}h`;
+      if (h > 0) return `${h}h ${m}min`;
+      return `${m}min`;
+    }
+
+    function scorePrediction(game, pred) {
+      if (!game.result || !pred) return { points: 0, exact: 0, correct: 0 };
+      const real = game.result;
+      const realSign = sign(real.home - real.away);
+      const predSign = sign(pred.home - pred.away);
+      const exact = real.home === pred.home && real.away === pred.away;
+      const totalOk = real.home + real.away === pred.home + pred.away;
+      let points = 0;
+      let correct = 0;
+
+      if (game.type === "group") {
+        if (exact) points = 10;
+        else if (realSign === predSign && totalOk) points = 7;
+        else if (realSign === predSign) points = 5;
+        if (realSign === predSign) correct = 1;
+      } else {
+        const advancedOk = pred.advancedTeam && game.advancedTeam && pred.advancedTeam === game.advancedTeam;
+        if (exact) points = 12;
+        else if (realSign === predSign && totalOk) points = 9;
+        else if (realSign !== 0 && realSign === predSign) points = 6;
+        else if (realSign === 0 && predSign === 0 && advancedOk) points = 4;
+        else if (advancedOk) points = 2;
+        if (realSign === predSign || advancedOk) correct = 1;
+        if (pred.overtime === true && game.wentOvertime === true) points += 2;
+      }
+      return { points, exact: exact ? 1 : 0, correct };
+    }
+
+    function scores() {
+      return state.data.participants.map(name => {
+        const row = { name, total: 0, exact: 0, correct: 0, made: 0 };
+        state.data.games.forEach(game => {
+          const pred = getPred(name, game.id);
+          if (pred) row.made += 1;
+          const s = scorePrediction(game, pred);
+          row.total += s.points;
+          row.exact += s.exact;
+          row.correct += s.correct;
+        });
+        return row;
+      }).sort((a,b) => b.total - a.total || b.exact - a.exact || b.correct - a.correct || a.name.localeCompare(b.name));
+    }
+
+    function navItems() {
+      const items = [
+        ["dashboard","⌂","Painel"],
+        ["games","⚽","Jogos"],
+        ["ranking","★","Ranking"],
+        ["performance","◷","Meu"]
+      ];
+      if (state.session?.role === "admin") items.push(["admin","⚙","Admin"]);
+      return items;
+    }
+
+    function renderNav() {
+      const html = navItems().map(([id, icon, label]) => `
+        <button class="nav-btn ${state.view === id ? "active" : ""}" onclick="go('${id}')"><b>${icon}</b><span>${label}</span></button>
+      `).join("");
+      document.getElementById("bottomNav").innerHTML = state.session ? html : "";
+      document.getElementById("sideNav").innerHTML = state.session ? html : "";
+    }
+
+    function render() {
+      document.body.classList.toggle("light", state.data.settings?.theme === "light");
+      document.getElementById("sessionLabel").textContent = state.session ? `${state.session.role === "admin" ? "Admin" : "Participante"}: ${state.session.name}` : "Entre para jogar";
+      document.getElementById("logoutBtn").classList.toggle("hidden", !state.session);
+      renderNav();
+      document.querySelectorAll(".screen").forEach(el => el.classList.toggle("active", el.id === state.view));
+      renderLogin();
+      if (state.session) {
+        renderDashboard();
+        renderGames();
+        renderRanking();
+        renderAdmin();
+        renderPerformance();
+      }
+    }
+
+    function renderLogin() {
+      const el = document.getElementById("login");
+      const participants = state.data.participants.map((name, index) => `
+        <button class="user-tile" onclick="loginParticipant(${index})">
+          <b>${escapeHtml(name)}</b><br><span class="mini">Entrar como participante</span>
+        </button>
+      `).join("");
+      el.innerHTML = `
+        <div class="hero">
+          <div>
+            <h2>Bolao familiar da Copa 2026</h2>
+            <p>Escolha seu nome, registre seus palpites ate uma hora antes dos jogos e acompanhe o ranking da familia em tempo real.</p>
+          </div>
+          <div class="login-grid">
+            <div class="panel">
+              <h2>Participantes</h2>
+              <div class="quick-users">${participants || "<p class='mini'>O admin ainda nao cadastrou participantes.</p>"}</div>
+            </div>
+            <div class="panel">
+              <h2>Admin</h2>
+              <p class="mini">Use a senha para gerenciar participantes, resultados e times do mata-mata.</p>
+              <input id="adminPasswordInput" type="password" placeholder="Senha do admin">
+              <div style="height:10px"></div>
+              <button class="primary" style="width:100%" onclick="adminLogin()">Entrar como admin</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function adminLogin() {
+      const pass = document.getElementById("adminPasswordInput").value;
+      if (pass !== state.data.adminPassword) return toast("Senha incorreta");
+      setSession({ role: "admin", name: "Admin" });
+    }
+
+    function loginParticipant(index) {
+      const name = state.data.participants[index];
+      if (!name) return toast("Participante nao encontrado");
+      setSession({ role: "user", name });
+    }
+
+    function renderDashboard() {
+      const user = state.session.name;
+      const all = state.data.games;
+      const pending = all.filter(g => !getPred(user, g.id) && !isLocked(g)).length;
+      const made = all.filter(g => getPred(user, g.id)).length;
+      const locked = all.filter(g => isLocked(g) && !g.result).length;
+      const me = scores().find(s => s.name === user) || { total: 0, exact: 0, correct: 0 };
+      const next = all.filter(g => !isLocked(g)).sort((a,b) => new Date(a.datetime) - new Date(b.datetime)).slice(0, 4);
+      document.getElementById("dashboard").innerHTML = `
+        <div class="grid two">
+          <div class="panel">
+            <h2>Ola, ${escapeHtml(user)}</h2>
+            <div class="stat-row">
+              <div class="stat"><b>${me.total}</b><span>pontos</span></div>
+              <div class="stat"><b>${pending}</b><span>palpites pendentes</span></div>
+              <div class="stat"><b>${made}</b><span>palpites feitos</span></div>
+              <div class="stat"><b>${me.exact}</b><span>placares exatos</span></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Resumo</h2>
+            <p class="mini">${locked} jogos ja passaram do prazo e ainda aguardam resultado.</p>
+            <button class="success" style="width:100%" onclick="go('games')">Ver jogos e palpitar</button>
+          </div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="panel">
+          <h2>Proximos jogos</h2>
+          <div class="game-list">${next.map(g => gameCard(g, true)).join("") || "<p class='mini'>Nao ha jogos futuros.</p>"}</div>
+        </div>`;
+    }
+
+    function filteredGames() {
+      const user = state.session.name;
+      const q = state.query.trim().toLowerCase();
+      return state.data.games.filter(g => {
+        const pred = getPred(user, g.id);
+        const done = !!g.result;
+        const locked = isLocked(g);
+        const byFilter =
+          state.filter === "all" ||
+          (state.filter === "pending" && !pred && !locked) ||
+          (state.filter === "made" && pred) ||
+          (state.filter === "closed" && (locked || done));
+        const byQuery = !q || `${g.homeTeam} ${g.awayTeam} ${g.id} ${g.phase}`.toLowerCase().includes(q);
+        return byFilter && byQuery;
+      });
+    }
+
+    function renderGames() {
+      const filters = [["all","Todos"],["pending","Pendentes"],["made","Com palpite"],["closed","Bloqueados"]];
+      document.getElementById("games").innerHTML = `
+        <div class="toolbar">
+          <div class="filters">${filters.map(([id,label]) => `<button class="chip ${state.filter===id?"active":""}" onclick="setFilter('${id}')">${label}</button>`).join("")}</div>
+          <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
+        </div>
+        <div class="game-list">${filteredGames().map(g => gameCard(g)).join("")}</div>`;
+    }
+
+    function gameCard(game, compact = false) {
+      const user = state.session?.name;
+      const pred = user ? getPred(user, game.id) : null;
+      const locked = isLocked(game);
+      const deadline = gameDeadline(game);
+      const status = game.result ? ["good","Resultado lancado"] : locked ? ["bad","Prazo encerrado"] : pred ? ["good","Palpitado"] : ["warn","Pendente"];
+      const predText = pred ? `Palpite: ${pred.home} x ${pred.away}${game.type === "knockout" && pred.advancedTeam ? `, passa ${escapeHtml(pred.advancedTeam)}` : ""}` : "Sem palpite";
+      const resultText = game.result ? `Resultado: ${game.result.home} x ${game.result.away}${game.advancedTeam ? `, passou ${escapeHtml(game.advancedTeam)}` : ""}` : `Prazo: ${dateLabel(new Date(deadline).toISOString())} (${timeLeft(deadline - Date.now())})`;
+      return `
+        <article class="game-card">
+          <div class="game-top">
+            <span>${game.id} · ${escapeHtml(game.phase)} · ${dateLabel(game.datetime)}</span>
+            <span class="pill ${status[0]}">${status[1]}</span>
+          </div>
+          <div class="match">
+            <div class="team">${escapeHtml(game.homeTeam)}</div>
+            <div class="versus">x</div>
+            <div class="team away">${escapeHtml(game.awayTeam)}</div>
+          </div>
+          <div class="mini">${escapeHtml(predText)}<br>${escapeHtml(resultText)}</div>
+          ${compact ? "" : `<div class="actions"><button class="primary" onclick="openPrediction('${game.id}')">${pred ? "Ver / editar" : "Palpitar"}</button>${state.session?.role === "admin" ? `<button onclick="goAdminGame('${game.id}')">Resultado</button>` : ""}</div>`}
+        </article>`;
+    }
+
+    function openPrediction(gameId) {
+      const game = state.data.games.find(g => g.id === gameId);
+      const pred = getPred(state.session.name, gameId) || { home: 0, away: 0, overtime: false, advancedTeam: game.homeTeam };
+      const locked = isLocked(game);
+      const modal = document.getElementById("games");
+      modal.innerHTML = `
+        <div class="panel">
+          <button onclick="renderGames()">← Voltar</button>
+          <div style="height:12px"></div>
+          <h2>${game.id} · ${escapeHtml(game.phase)}</h2>
+          <p class="mini">${dateLabel(game.datetime)} · ${locked ? "prazo encerrado" : "fecha em " + timeLeft(gameDeadline(game) - Date.now())}</p>
+          <div class="score-editor">
+            <div class="score-box">
+              <b>${escapeHtml(game.homeTeam)}</b>
+              <div class="score-controls">
+                <button ${locked?"disabled":""} onclick="bump('predHome',-1)">-</button>
+                <input id="predHome" type="number" min="0" value="${pred.home}" ${locked?"disabled":""}>
+                <button ${locked?"disabled":""} onclick="bump('predHome',1)">+</button>
+              </div>
+            </div>
+            <div class="versus">x</div>
+            <div class="score-box">
+              <b>${escapeHtml(game.awayTeam)}</b>
+              <div class="score-controls">
+                <button ${locked?"disabled":""} onclick="bump('predAway',-1)">-</button>
+                <input id="predAway" type="number" min="0" value="${pred.away}" ${locked?"disabled":""}>
+                <button ${locked?"disabled":""} onclick="bump('predAway',1)">+</button>
+              </div>
+            </div>
+          </div>
+          ${game.type === "knockout" ? `
+            <div class="form-row">
+              <label>Vai para prorrogacao?
+                <select id="predOvertime" ${locked?"disabled":""}>
+                  <option value="false" ${!pred.overtime ? "selected" : ""}>Nao</option>
+                  <option value="true" ${pred.overtime ? "selected" : ""}>Sim</option>
+                </select>
+              </label>
+              <label>Quem passa?
+                <select id="predAdvanced" ${locked?"disabled":""}>
+                  <option ${pred.advancedTeam === game.homeTeam ? "selected" : ""}>${escapeHtml(game.homeTeam)}</option>
+                  <option ${pred.advancedTeam === game.awayTeam ? "selected" : ""}>${escapeHtml(game.awayTeam)}</option>
+                </select>
+              </label>
+            </div>` : `<p class="mini">Fase de grupos: empate e permitido.</p>`}
+          <button class="success" style="width:100%" ${locked?"disabled":""} onclick="savePrediction('${game.id}')">Confirmar palpite</button>
+        </div>`;
+    }
+
+    function savePrediction(gameId) {
+      const game = state.data.games.find(g => g.id === gameId);
+      if (isLocked(game)) return toast("Prazo encerrado");
+      const user = state.session.name;
+      state.data.predictions[user] ||= {};
+      const pred = {
+        home: Math.max(0, Number(document.getElementById("predHome").value || 0)),
+        away: Math.max(0, Number(document.getElementById("predAway").value || 0)),
+        overtime: game.type === "knockout" ? document.getElementById("predOvertime").value === "true" : null,
+        advancedTeam: game.type === "knockout" ? document.getElementById("predAdvanced").value : null,
+        submittedAt: new Date().toISOString()
+      };
+      state.data.predictions[user][gameId] = pred;
+      saveData();
+      toast("Palpite confirmado");
+      renderGames();
+    }
+
+    function renderRanking() {
+      const rows = scores();
+      document.getElementById("ranking").innerHTML = `
+        <div class="panel">
+          <h2>Ranking geral</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Nome</th><th>Pontos</th><th>Exatos</th><th>Corretos</th><th>Palpites</th></tr></thead>
+              <tbody>${rows.map((r,i) => `<tr><td class="medal">${["🥇","🥈","🥉"][i] || i + 1}</td><td><b>${escapeHtml(r.name)}</b></td><td>${r.total}</td><td>${r.exact}</td><td>${r.correct}</td><td>${r.made}</td></tr>`).join("")}</tbody>
+            </table>
+          </div>
+          <div style="height:12px"></div>
+          <button class="primary" onclick="shareRanking()">Copiar ranking para WhatsApp</button>
+        </div>`;
+    }
+
+    function renderPerformance() {
+      const user = state.session.name;
+      const me = scores().find(s => s.name === user) || { total: 0, exact: 0, correct: 0, made: 0 };
+      const hitRows = state.data.games.map(g => ({ game: g, pred: getPred(user, g.id) })).filter(x => x.pred && x.game.result).map(x => {
+        const s = scorePrediction(x.game, x.pred);
+        return `<tr><td>${x.game.id}</td><td>${escapeHtml(x.game.homeTeam)} x ${escapeHtml(x.game.awayTeam)}</td><td>${x.pred.home} x ${x.pred.away}</td><td>${s.points}</td></tr>`;
+      }).join("");
+      document.getElementById("performance").innerHTML = `
+        <div class="panel">
+          <h2>Meu desempenho</h2>
+          <div class="stat-row">
+            <div class="stat"><b>${me.total}</b><span>pontos</span></div>
+            <div class="stat"><b>${me.exact}</b><span>placares exatos</span></div>
+            <div class="stat"><b>${me.correct}</b><span>acertos</span></div>
+            <div class="stat"><b>${me.made}</b><span>palpites feitos</span></div>
+          </div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="panel">
+          <h2>Historico pontuado</h2>
+          <div class="table-wrap"><table><thead><tr><th>Jogo</th><th>Confronto</th><th>Palpite</th><th>Pontos</th></tr></thead><tbody>${hitRows || "<tr><td colspan='4'>Nenhum resultado lancado ainda.</td></tr>"}</tbody></table></div>
+        </div>`;
+    }
+
+    function renderAdmin() {
+      if (state.session?.role !== "admin") return;
+      const options = state.data.games.map(g => `<option value="${g.id}">${g.id} · ${escapeHtml(g.homeTeam)} x ${escapeHtml(g.awayTeam)}</option>`).join("");
+      const participants = state.data.participants.map((p, index) => `<span class="pill">${escapeHtml(p)} <button title="Remover" class="danger" style="min-height:26px;padding:0 6px" onclick="removeParticipant(${index})">x</button></span>`).join(" ");
+      document.getElementById("admin").innerHTML = `
+        <div class="admin-grid">
+          <div class="panel">
+            <h2>Participantes</h2>
+            <div>${participants}</div>
+            <div class="form-row">
+              <input id="newParticipant" placeholder="Nome do participante">
+              <button class="success" onclick="addParticipant()">Adicionar</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Senha do admin</h2>
+            <div class="form-row">
+              <input id="newPassword" placeholder="Nova senha" value="${escapeHtml(state.data.adminPassword)}">
+              <button onclick="changePassword()">Salvar senha</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Resultado real</h2>
+            <select id="adminGame" onchange="fillAdminGame()">${options}</select>
+            <div class="form-row">
+              <input id="adminHome" placeholder="Mandante">
+              <input id="adminAway" placeholder="Visitante">
+            </div>
+            <div class="form-row">
+              <input id="resHome" type="number" min="0" placeholder="Gols mandante">
+              <input id="resAway" type="number" min="0" placeholder="Gols visitante">
+            </div>
+            <div class="form-row">
+              <select id="wentOvertime"><option value="false">Nao foi para prorrogacao</option><option value="true">Foi para prorrogacao</option></select>
+              <select id="advancedTeam"></select>
+            </div>
+            <div class="actions">
+              <button class="success" onclick="saveResult()">Salvar resultado</button>
+              <button onclick="clearResult()">Limpar resultado</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Ferramentas</h2>
+            <div class="form-row">
+              <select id="resetUser">${state.data.participants.map(p => `<option>${escapeHtml(p)}</option>`).join("")}</select>
+              <button class="danger" onclick="resetUserPredictions()">Resetar palpites</button>
+            </div>
+            <button class="primary" onclick="shareRanking()">Copiar ranking</button>
+            <div style="height:8px"></div>
+            <button onclick="viewGamePredictions()">Ver palpites do jogo selecionado</button>
+            <div id="adminPreview" style="margin-top:12px"></div>
+          </div>
+        </div>`;
+      fillAdminGame();
+    }
+
+    function fillAdminGame() {
+      const game = state.data.games.find(g => g.id === document.getElementById("adminGame").value);
+      if (!game) return;
+      document.getElementById("adminHome").value = game.homeTeam;
+      document.getElementById("adminAway").value = game.awayTeam;
+      document.getElementById("resHome").value = game.result?.home ?? "";
+      document.getElementById("resAway").value = game.result?.away ?? "";
+      document.getElementById("wentOvertime").value = String(!!game.wentOvertime);
+      document.getElementById("advancedTeam").innerHTML = `<option>${escapeHtml(game.homeTeam)}</option><option>${escapeHtml(game.awayTeam)}</option>`;
+      document.getElementById("advancedTeam").value = game.advancedTeam || game.homeTeam;
+    }
+
+    function saveResult() {
+      const game = state.data.games.find(g => g.id === document.getElementById("adminGame").value);
+      game.homeTeam = document.getElementById("adminHome").value.trim() || game.homeTeam;
+      game.awayTeam = document.getElementById("adminAway").value.trim() || game.awayTeam;
+      const home = document.getElementById("resHome").value;
+      const away = document.getElementById("resAway").value;
+      if (home === "" || away === "") return toast("Informe o placar");
+      game.result = { home: Number(home), away: Number(away) };
+      game.status = "finished";
+      if (game.type === "knockout") {
+        game.wentOvertime = document.getElementById("wentOvertime").value === "true";
+        game.advancedTeam = document.getElementById("advancedTeam").value;
+      }
+      saveData();
+      toast("Resultado salvo");
+      render();
+    }
+
+    function clearResult() {
+      const game = state.data.games.find(g => g.id === document.getElementById("adminGame").value);
+      game.result = null;
+      game.advancedTeam = null;
+      game.wentOvertime = false;
+      game.status = "pending";
+      saveData();
+      toast("Resultado removido");
+      render();
+    }
+
+    function addParticipant() {
+      const input = document.getElementById("newParticipant");
+      const name = input.value.trim();
+      if (!name) return;
+      if (state.data.participants.includes(name)) return toast("Nome ja cadastrado");
+      if (state.data.participants.length >= 15) return toast("Limite de 15 participantes");
+      state.data.participants.push(name);
+      saveData();
+      render();
+    }
+
+    function removeParticipant(index) {
+      const name = state.data.participants[index];
+      if (!name) return;
+      state.data.participants = state.data.participants.filter(p => p !== name);
+      delete state.data.predictions[name];
+      saveData();
+      render();
+    }
+
+    function changePassword() {
+      state.data.adminPassword = document.getElementById("newPassword").value || DEFAULT_PASSWORD;
+      saveData();
+      toast("Senha salva");
+    }
+
+    function resetUserPredictions() {
+      const user = document.getElementById("resetUser").value;
+      delete state.data.predictions[user];
+      saveData();
+      toast("Palpites resetados");
+      render();
+    }
+
+    function viewGamePredictions() {
+      const gameId = document.getElementById("adminGame").value;
+      const rows = state.data.participants.map(p => {
+        const pred = getPred(p, gameId);
+        return `<tr><td>${escapeHtml(p)}</td><td>${pred ? `${pred.home} x ${pred.away}` : "Sem palpite"}</td><td>${pred?.advancedTeam || ""}</td></tr>`;
+      }).join("");
+      document.getElementById("adminPreview").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Palpite</th><th>Passa</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    function shareRanking() {
+      const text = scores().map((r,i) => `${i + 1}. ${r.name} - ${r.total} pts (${r.exact} exatos, ${r.correct} corretos)`).join("\n");
+      navigator.clipboard?.writeText("Ranking do Bolao da Copa 2026\n\n" + text).then(() => toast("Ranking copiado")).catch(() => {
+        prompt("Copie o ranking:", text);
+      });
+    }
+
+    function requestNotifications() {
+      if (!("Notification" in window)) return toast("Navegador sem notificacoes");
+      Notification.requestPermission().then(permission => {
+        toast(permission === "granted" ? "Notificacoes ativadas" : "Permissao negada");
+        scheduleNotifications();
+      });
+    }
+
+    function scheduleNotifications() {
+      if (!("Notification" in window) || Notification.permission !== "granted" || !state.session) return;
+      const user = state.session.name;
+      state.data.games.forEach(game => {
+        if (getPred(user, game.id)) return;
+        [24, 2].forEach(hours => {
+          const when = new Date(game.datetime).getTime() - hours * 3600000;
+          const delay = when - Date.now();
+          if (delay > 0 && delay < 2147483647) {
+            setTimeout(() => {
+              if (!getPred(user, game.id)) new Notification("Bolao da Copa 2026", { body: `${hours}h para ${game.homeTeam} x ${game.awayTeam}. Faca seu palpite!` });
+            }, delay);
+          }
+        });
+      });
+    }
+
+    function bump(id, diff) {
+      const input = document.getElementById(id);
+      input.value = Math.max(0, Number(input.value || 0) + diff);
+    }
+    function setFilter(id) { state.filter = id; renderGames(); }
+    function setQuery(value) { state.query = value; renderGames(); }
+    function go(id) { state.view = id; render(); }
+    function goAdminGame(id) { state.view = "admin"; render(); document.getElementById("adminGame").value = id; fillAdminGame(); }
+    function toast(message) {
+      const el = document.getElementById("toast");
+      el.textContent = message;
+      el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 1800);
+    }
+
+    document.getElementById("themeBtn").addEventListener("click", () => {
+      state.data.settings ||= {};
+      state.data.settings.theme = state.data.settings.theme === "light" ? "dark" : "light";
+      saveData();
+      render();
+    });
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("bolaoSession");
+      state.session = null;
+      state.view = "login";
+      render();
+    });
+    document.getElementById("notifyBtn").addEventListener("click", requestNotifications);
+
+    setInterval(() => {
+      if (state.session && (state.view === "games" || state.view === "dashboard")) render();
+    }, 60000);
+
+    if (state.session) state.view = "dashboard";
+    scheduleNotifications();
+    render();
+  </script>
+</body>
+</html>
