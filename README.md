@@ -21,6 +21,10 @@ Depois de enviar o repositorio para o GitHub:
 5. Escolha a branch `main` e a pasta `/root`
 6. Acesse a URL gerada pelo GitHub Pages
 
-Como o arquivo principal se chama `bolao_copa2026.html`, a URL final ficara parecida com:
+Com o `index.html`, a URL final ficara parecida com:
 
-`https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/bolao_copa2026.html`
+`https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/`
+
+Para este projeto:
+
+`https://andreviga.github.io/bolaodacopa/`
