@@ -202,14 +202,21 @@
       gap: 8px;
     }
     .login-grid { display: grid; gap: 12px; grid-template-columns: 1fr; max-width: 760px; }
-    .quick-users { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
-    .user-tile {
-      padding: 16px;
-      min-height: 74px;
+    .login-card { display: grid; gap: 12px; }
+    .identity-confirm {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
       border: 1px solid var(--line);
-      text-align: left;
-      background: var(--panel);
+      border-radius: 8px;
+      background: var(--panel-2);
     }
+    .identity-name {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: var(--gold);
+    }
+    .identity-actions { display: grid; gap: 8px; grid-template-columns: 1fr; }
     .primary { background: linear-gradient(135deg, var(--gold), #FFB000); color: #101521; font-weight: 800; }
     .success { background: linear-gradient(135deg, var(--green), #11A8FF); color: #07131B; font-weight: 800; }
     .danger { background: rgba(255, 92, 122, .15); color: var(--red); border: 1px solid rgba(255,92,122,.35); }
@@ -391,6 +398,7 @@
       .login-grid { grid-template-columns: 1fr 280px; align-items: start; }
       .front-info { grid-template-columns: 1.15fr .85fr; }
       .install-actions { grid-template-columns: auto 1fr; align-items: center; }
+      .identity-actions { grid-template-columns: 1fr auto; }
       .grid.two { grid-template-columns: 1.2fr .8fr; }
       .grid.three { grid-template-columns: repeat(3, 1fr); }
       .toolbar { grid-template-columns: 1fr 300px; align-items: center; }
@@ -458,7 +466,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.9";
+    const APP_VERSION = "2026.06.03.10";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -1179,10 +1187,10 @@
 
     function renderLogin() {
       const el = document.getElementById("login");
-      const participants = state.data.participants.map((name, index) => `
-        <button class="user-tile" onclick="loginParticipant(${index})">
-          <b>${escapeHtml(name)}</b><br><span class="mini">Entrar como participante</span>
-        </button>
+      const lastParticipant = localStorage.getItem("bolaoLastParticipant") || "";
+      const selectedName = state.data.participants.includes(lastParticipant) ? lastParticipant : (state.data.participants[0] || "");
+      const participantOptions = state.data.participants.map(name => `
+        <option value="${escapeHtml(name)}" ${name === selectedName ? "selected" : ""}>${escapeHtml(name)}</option>
       `).join("");
       el.innerHTML = `
         <div class="hero">
@@ -1211,8 +1219,25 @@
           </div>
           <div class="login-grid">
             <div class="panel">
-              <h2>Participantes</h2>
-              <div class="quick-users">${participants || "<p class='mini'>O admin ainda nao cadastrou participantes.</p>"}</div>
+              <h2>Entrar como participante</h2>
+              ${state.data.participants.length ? `
+                <div class="login-card">
+                  <label>Escolha seu nome
+                    <select id="participantSelect" onchange="updateParticipantPreview()">
+                      ${participantOptions}
+                    </select>
+                  </label>
+                  <div class="identity-confirm">
+                    <span class="mini">Confira antes de entrar:</span>
+                    <span class="identity-name" id="participantPreview">${escapeHtml(selectedName)}</span>
+                    <span class="mini">Todos os palpites feitos nesta sessao serao salvos para este participante.</span>
+                  </div>
+                  <div class="identity-actions">
+                    <button class="success" onclick="confirmParticipantLogin()">Confirmar e entrar</button>
+                    <button onclick="clearLastParticipant()">Trocar pessoa</button>
+                  </div>
+                </div>
+              ` : "<p class='mini'>O admin ainda nao cadastrou participantes.</p>"}
             </div>
             <div class="panel">
               <h2>Admin</h2>
@@ -1231,9 +1256,26 @@
       setSession({ role: "admin", name: "Admin" });
     }
 
-    function loginParticipant(index) {
-      const name = state.data.participants[index];
-      if (!name) return toast("Participante nao encontrado");
+    function updateParticipantPreview() {
+      const select = document.getElementById("participantSelect");
+      const preview = document.getElementById("participantPreview");
+      if (select && preview) preview.textContent = select.value || "Selecione um nome";
+    }
+
+    function clearLastParticipant() {
+      localStorage.removeItem("bolaoLastParticipant");
+      const select = document.getElementById("participantSelect");
+      if (select) select.focus();
+      toast("Escolha o participante correto");
+    }
+
+    function confirmParticipantLogin() {
+      const select = document.getElementById("participantSelect");
+      const name = select?.value;
+      if (!name || !state.data.participants.includes(name)) return toast("Escolha um participante valido");
+      const ok = confirm(`Entrar como ${name}?\n\nConfira se este e o seu nome antes de fazer palpites.`);
+      if (!ok) return;
+      localStorage.setItem("bolaoLastParticipant", name);
       setSession({ role: "user", name });
     }
 
@@ -1802,6 +1844,7 @@
       localStorage.removeItem("bolaoSession");
       state.session = null;
       state.view = "login";
+      toast("Sessao encerrada. Confira o nome antes de entrar.");
       render();
     });
     document.getElementById("notifyBtn").addEventListener("click", requestNotifications);
