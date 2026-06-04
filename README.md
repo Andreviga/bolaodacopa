@@ -29,15 +29,15 @@ Use o GitHub apenas como repositorio e a Vercel para hospedar o app.
 1. Acesse `https://vercel.com`
 2. Clique em `Add New...` > `Project`
 3. Importe o repositorio `Andreviga/bolaodacopa`
-4. Em `Project Name`, use `bolaodacopa`
+4. Em `Project Name`, use `copammv`
 5. Em `Framework Preset`, escolha `Other`
 6. Deixe `Build Command` vazio
 7. Deixe `Output Directory` vazio
 8. Clique em `Deploy`
 
-Se o nome do projeto for `bolaodacopa`, o link final deve ficar:
+Se o nome do projeto for `copammv`, o link final deve ficar:
 
-`https://bolaodacopa.vercel.app/`
+`https://copammv.vercel.app/`
 
 O arquivo `vercel.json` ja configura cache baixo para HTML, `sw.js` e `backend-config.js`, evitando que uma versao antiga fique presa no navegador.
 
