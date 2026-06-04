@@ -220,6 +220,41 @@
     }
     .stat b { display: block; font-size: 1.55rem; }
     .stat span { color: var(--muted); font-size: .88rem; }
+    .alert-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .alert-item {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+    }
+    .alert-icon {
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border-radius: 999px;
+      font-weight: 900;
+      font-size: .85rem;
+      background: rgba(255,255,255,.08);
+    }
+    .alert-item strong { display: block; margin-bottom: 2px; }
+    .alert-item span { color: var(--muted); font-size: .88rem; line-height: 1.35; }
+    .alert-error { border-color: rgba(255, 92, 122, .45); }
+    .alert-error .alert-icon { color: var(--red); background: rgba(255, 92, 122, .14); }
+    .alert-warn { border-color: rgba(255, 215, 0, .45); }
+    .alert-warn .alert-icon { color: var(--gold); background: rgba(255, 215, 0, .14); }
+    .alert-info { border-color: rgba(77, 163, 255, .42); }
+    .alert-info .alert-icon { color: var(--blue); background: rgba(77, 163, 255, .14); }
+    .alert-good { border-color: rgba(0, 200, 150, .42); }
+    .alert-good .alert-icon { color: var(--green); background: rgba(0, 200, 150, .14); }
 
     .toolbar { display: grid; gap: 10px; margin: 0 0 14px; }
     .tabs, .filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
@@ -406,7 +441,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.3";
+    const APP_VERSION = "2026.06.03.4";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -633,6 +668,7 @@
       } catch (error) {
         state.backend.status = "offline";
         state.backend.error = error.message || "erro de sincronizacao";
+        if (state.session) toast("Aviso: sincronizacao falhou");
         renderBackendOnly();
       }
     }
@@ -655,6 +691,7 @@
       } catch (error) {
         state.backend.status = "offline";
         state.backend.error = error.message || "erro ao salvar";
+        if (state.session) toast("Salvo localmente, mas backend falhou");
         renderBackendOnly();
       }
     }
@@ -762,6 +799,94 @@
       if (d > 0) return `${d}d ${h % 24}h`;
       if (h > 0) return `${h}h ${m}min`;
       return `${m}min`;
+    }
+
+    function isPlaceholderTeam(name) {
+      return /repescagem|grupo|vencedor|perdedor|adversario|colocado/i.test(normalizeTeamName(name));
+    }
+
+    function alertItem(level, title, message) {
+      const icons = { error: "!", warn: "!", info: "i", good: "✓" };
+      return { level, title, message, icon: icons[level] || "i" };
+    }
+
+    function collectUserAlerts(user) {
+      const alerts = [];
+      const games = state.data.games;
+      const now = Date.now();
+      const openMissing = games.filter(g => !getPred(user, g.id) && !isLocked(g));
+      const closingSoon = openMissing
+        .filter(g => gameDeadline(g) - now > 0 && gameDeadline(g) - now <= 2 * 3600000)
+        .sort((a,b) => gameDeadline(a) - gameDeadline(b));
+      const closingToday = openMissing
+        .filter(g => gameDeadline(g) - now > 2 * 3600000 && gameDeadline(g) - now <= 24 * 3600000)
+        .sort((a,b) => gameDeadline(a) - gameDeadline(b));
+      const missed = games.filter(g => !getPred(user, g.id) && isLocked(g) && !g.result);
+
+      if (state.backend.status === "offline") alerts.push(alertItem("error", "Sincronizacao falhou", state.backend.error || "Sem conexao com o banco. Seus dados ficam locais ate voltar."));
+      else if (!backendIsConfigured()) alerts.push(alertItem("warn", "Modo local", "Os dados deste navegador nao aparecem para os outros participantes."));
+      else if (state.backend.status === "saving" || state.backend.status === "syncing") alerts.push(alertItem("info", "Sincronizando", "Aguarde alguns segundos antes de fechar o app."));
+
+      if (closingSoon.length) {
+        const g = closingSoon[0];
+        alerts.push(alertItem("error", "Palpite quase fechando", `${teamText(g.homeTeam)} x ${teamText(g.awayTeam)} fecha em ${timeLeft(gameDeadline(g) - now)}.`));
+      }
+      if (closingToday.length) {
+        const g = closingToday[0];
+        alerts.push(alertItem("warn", "Palpite pendente hoje", `${teamText(g.homeTeam)} x ${teamText(g.awayTeam)} fecha em ${timeLeft(gameDeadline(g) - now)}.`));
+      }
+      if (openMissing.length) alerts.push(alertItem("info", "Palpites pendentes", `Voce ainda tem ${openMissing.length} jogo(s) abertos sem palpite.`));
+      if (missed.length) alerts.push(alertItem("warn", "Prazo perdido", `${missed.length} jogo(s) passaram do prazo sem palpite.`));
+      if (!alerts.length) alerts.push(alertItem("good", "Tudo certo", "Nenhum aviso importante agora."));
+      return alerts.slice(0, 5);
+    }
+
+    function collectAdminAlerts() {
+      const alerts = [];
+      const now = Date.now();
+      const participants = state.data.participants;
+      const duplicates = participants.filter((name, index) => participants.indexOf(name) !== index);
+      const pastNoResult = state.data.games
+        .filter(g => new Date(g.datetime).getTime() + 2 * 3600000 < now && !g.result)
+        .sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+      const placeholderSoon = state.data.games
+        .filter(g => g.type === "knockout" && !g.result && (isPlaceholderTeam(g.homeTeam) || isPlaceholderTeam(g.awayTeam)))
+        .filter(g => new Date(g.datetime).getTime() - now <= 7 * 24 * 3600000)
+        .sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+
+      if (state.backend.status === "offline") alerts.push(alertItem("error", "Backend offline", state.backend.error || "Nao foi possivel sincronizar com o Supabase."));
+      else if (!backendIsConfigured()) alerts.push(alertItem("error", "Backend nao configurado", "Configure Supabase para todos verem o mesmo ranking."));
+      else if (state.backend.status === "saving" || state.backend.status === "syncing") alerts.push(alertItem("info", "Sincronizando dados", "Aguarde a confirmacao antes de fechar o app."));
+
+      if (participants.length < 5) alerts.push(alertItem("warn", "Poucos participantes", `O bolao recomenda 5 a 15 pessoas. Agora tem ${participants.length}.`));
+      if (participants.length > 15) alerts.push(alertItem("error", "Participantes demais", "Remova nomes ate ficar no maximo com 15."));
+      if (duplicates.length) alerts.push(alertItem("error", "Nome duplicado", `Revise: ${duplicates.join(", ")}.`));
+      if (state.data.adminPassword === DEFAULT_PASSWORD) alerts.push(alertItem("warn", "Senha padrao", "Troque a senha do admin se o link for compartilhado."));
+      if (pastNoResult.length) {
+        const g = pastNoResult[0];
+        alerts.push(alertItem("warn", "Resultado pendente", `${pastNoResult.length} jogo(s) ja passaram e ainda nao tem resultado. Proximo: ${g.id} ${teamText(g.homeTeam)} x ${teamText(g.awayTeam)}.`));
+      }
+      if (placeholderSoon.length) {
+        const g = placeholderSoon[0];
+        alerts.push(alertItem("info", "Mata-mata incompleto", `Atualize os times de ${g.id}: ${teamText(g.homeTeam)} x ${teamText(g.awayTeam)}.`));
+      }
+      if (!alerts.length) alerts.push(alertItem("good", "Tudo certo", "Nenhum aviso administrativo importante agora."));
+      return alerts.slice(0, 6);
+    }
+
+    function alertsHtml(alerts, title = "Avisos") {
+      return `
+        <div class="panel">
+          <h2>${title}</h2>
+          <div class="alert-list">
+            ${alerts.map(alert => `
+              <div class="alert-item alert-${alert.level}">
+                <div class="alert-icon">${alert.icon}</div>
+                <div><strong>${escapeHtml(alert.title)}</strong><span>${escapeHtml(alert.message)}</span></div>
+              </div>
+            `).join("")}
+          </div>
+        </div>`;
     }
 
     function scorePrediction(game, pred) {
@@ -910,7 +1035,10 @@
       const locked = all.filter(g => isLocked(g) && !g.result).length;
       const me = scores().find(s => s.name === user) || { total: 0, exact: 0, correct: 0 };
       const next = all.filter(g => !isLocked(g)).sort((a,b) => new Date(a.datetime) - new Date(b.datetime)).slice(0, 4);
+      const dashboardAlerts = state.session.role === "admin" ? collectAdminAlerts() : collectUserAlerts(user);
       document.getElementById("dashboard").innerHTML = `
+        ${alertsHtml(dashboardAlerts, state.session.role === "admin" ? "Avisos do admin" : "Avisos")}
+        <div style="height:14px"></div>
         <div class="grid two">
           <div class="panel">
             <h2>Ola, ${escapeHtml(user)}</h2>
@@ -953,12 +1081,13 @@
 
     function renderGames() {
       const filters = [["all","Todos"],["pending","Pendentes"],["made","Com palpite"],["closed","Bloqueados"]];
+      const games = filteredGames();
       document.getElementById("games").innerHTML = `
         <div class="toolbar">
           <div class="filters">${filters.map(([id,label]) => `<button class="chip ${state.filter===id?"active":""}" onclick="setFilter('${id}')">${label}</button>`).join("")}</div>
           <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
         </div>
-        <div class="game-list">${filteredGames().map(g => gameCard(g)).join("")}</div>`;
+        <div class="game-list">${games.length ? games.map(g => gameCard(g)).join("") : alertsHtml([alertItem("info", "Nenhum jogo encontrado", "Limpe a busca ou troque o filtro para ver mais jogos.")], "Aviso")}</div>`;
     }
 
     function gameCard(game, compact = false) {
@@ -1037,15 +1166,27 @@
     function savePrediction(gameId) {
       const game = state.data.games.find(g => g.id === gameId);
       if (isLocked(game)) return toast("Prazo encerrado");
+      const homeInput = document.getElementById("predHome").value;
+      const awayInput = document.getElementById("predAway").value;
+      const home = Number(homeInput);
+      const away = Number(awayInput);
+      if (homeInput === "" || awayInput === "") return toast(`Voce esqueceu de colocar o placar de ${teamText(game.homeTeam)} x ${teamText(game.awayTeam)}`);
+      if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) return toast("Use gols inteiros e maiores ou iguais a zero");
+      if (home > 30 || away > 30) return toast("Confira o placar: gols muito altos parecem erro");
       const user = state.session.name;
       state.data.predictions[user] ||= {};
       const pred = {
-        home: Math.max(0, Number(document.getElementById("predHome").value || 0)),
-        away: Math.max(0, Number(document.getElementById("predAway").value || 0)),
+        home,
+        away,
         overtime: game.type === "knockout" ? document.getElementById("predOvertime").value === "true" : null,
         advancedTeam: game.type === "knockout" ? document.getElementById("predAdvanced").value : null,
         submittedAt: new Date().toISOString()
       };
+      if (game.type === "knockout") {
+        if (!pred.advancedTeam) return toast("Escolha quem passa no mata-mata");
+        if (home === away && !pred.overtime) return toast("Se o mata-mata empatar nos 90 min, marque prorrogacao: Sim");
+        if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min terminarem empatados");
+      }
       state.data.predictions[user][gameId] = pred;
       saveData();
       toast("Palpite confirmado");
@@ -1132,6 +1273,8 @@
       const options = state.data.games.map(g => `<option value="${g.id}">${g.id} · ${escapeHtml(teamText(g.homeTeam))} x ${escapeHtml(teamText(g.awayTeam))}</option>`).join("");
       const participants = state.data.participants.map((p, index) => `<span class="pill">${escapeHtml(p)} <button title="Remover" class="danger" style="min-height:26px;padding:0 6px" onclick="removeParticipant(${index})">x</button></span>`).join(" ");
       document.getElementById("admin").innerHTML = `
+        ${alertsHtml(collectAdminAlerts(), "Avisos do admin")}
+        <div style="height:14px"></div>
         <div class="admin-grid">
           <div class="panel">
             <h2>Participantes</h2>
@@ -1198,16 +1341,39 @@
 
     function saveResult() {
       const game = state.data.games.find(g => g.id === document.getElementById("adminGame").value);
-      game.homeTeam = document.getElementById("adminHome").value.trim() || game.homeTeam;
-      game.awayTeam = document.getElementById("adminAway").value.trim() || game.awayTeam;
+      const homeTeam = document.getElementById("adminHome").value.trim();
+      const awayTeam = document.getElementById("adminAway").value.trim();
+      if (!homeTeam || !awayTeam) return toast("Informe os dois times antes de salvar");
       const home = document.getElementById("resHome").value;
       const away = document.getElementById("resAway").value;
-      if (home === "" || away === "") return toast("Informe o placar");
-      game.result = { home: Number(home), away: Number(away) };
+      const homeScore = Number(home);
+      const awayScore = Number(away);
+      if (home === "" || away === "") return toast(`Voce esqueceu de colocar o placar de ${teamText(homeTeam)} x ${teamText(awayTeam)}`);
+      if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) return toast("Resultado precisa ter gols inteiros e maiores ou iguais a zero");
+      if (homeScore > 30 || awayScore > 30) return toast("Confira o resultado: gols muito altos parecem erro");
+      if (new Date(game.datetime).getTime() > Date.now()) {
+        const ok = confirm("Este jogo ainda nao aconteceu. Quer salvar o resultado mesmo assim?");
+        if (!ok) return;
+      }
+      let wentOvertime = false;
+      let advancedTeam = null;
+      if (game.type === "knockout") {
+        wentOvertime = document.getElementById("wentOvertime").value === "true";
+        if (homeScore === awayScore && !wentOvertime) return toast("Se empatou nos 90 min, marque que foi para prorrogacao");
+        if (homeScore !== awayScore && wentOvertime) return toast("Prorrogacao so acontece se os 90 min terminaram empatados");
+        advancedTeam = document.getElementById("advancedTeam").value;
+        if (![homeTeam, awayTeam].includes(advancedTeam)) {
+          if (homeScore !== awayScore) advancedTeam = homeScore > awayScore ? homeTeam : awayTeam;
+          else return toast("Escolha quem passou depois de atualizar os times");
+        }
+      }
+      game.homeTeam = homeTeam;
+      game.awayTeam = awayTeam;
+      game.result = { home: homeScore, away: awayScore };
       game.status = "finished";
       if (game.type === "knockout") {
-        game.wentOvertime = document.getElementById("wentOvertime").value === "true";
-        game.advancedTeam = document.getElementById("advancedTeam").value;
+        game.wentOvertime = wentOvertime;
+        game.advancedTeam = advancedTeam;
       }
       saveData();
       toast("Resultado salvo");
@@ -1216,6 +1382,7 @@
 
     function clearResult() {
       const game = state.data.games.find(g => g.id === document.getElementById("adminGame").value);
+      if (!confirm(`Limpar o resultado de ${game.id}? O ranking sera recalculado.`)) return;
       game.result = null;
       game.advancedTeam = null;
       game.wentOvertime = false;
@@ -1227,9 +1394,11 @@
 
     function addParticipant() {
       const input = document.getElementById("newParticipant");
-      const name = input.value.trim();
-      if (!name) return;
-      if (state.data.participants.includes(name)) return toast("Nome ja cadastrado");
+      const name = input.value.trim().replace(/\s+/g, " ");
+      if (!name) return toast("Informe o nome do participante");
+      if (name.length < 2) return toast("Nome muito curto");
+      if (name.length > 28) return toast("Use um nome mais curto");
+      if (state.data.participants.some(p => p.toLowerCase() === name.toLowerCase())) return toast("Nome ja cadastrado");
       if (state.data.participants.length >= 15) return toast("Limite de 15 participantes");
       state.data.participants.push(name);
       saveData();
@@ -1239,6 +1408,7 @@
     function removeParticipant(index) {
       const name = state.data.participants[index];
       if (!name) return;
+      if (!confirm(`Remover ${name} e apagar os palpites dessa pessoa?`)) return;
       state.data.participants = state.data.participants.filter(p => p !== name);
       delete state.data.predictions[name];
       saveData();
@@ -1246,7 +1416,9 @@
     }
 
     function changePassword() {
-      state.data.adminPassword = document.getElementById("newPassword").value || DEFAULT_PASSWORD;
+      const password = document.getElementById("newPassword").value.trim();
+      if (password.length < 4) return toast("Senha precisa ter pelo menos 4 caracteres");
+      state.data.adminPassword = password;
       saveData();
       toast("Senha salva");
     }
@@ -1259,6 +1431,11 @@
         table: document.getElementById("backendTable").value.trim() || DEFAULT_BACKEND_CONFIG.table,
         rowId: document.getElementById("backendRowId").value.trim() || DEFAULT_BACKEND_CONFIG.rowId
       };
+      if (config.url && !/^https:\/\/.+/i.test(config.url)) return toast("URL do Supabase precisa comecar com https://");
+      if (config.url && !config.anonKey) return toast("Informe a publishable / anon key");
+      if (config.anonKey && !config.url) return toast("Informe a URL do Supabase");
+      if (!/^[a-z0-9_]+$/i.test(config.table)) return toast("Nome da tabela deve usar letras, numeros e _");
+      if (!config.rowId) return toast("Informe o ID do bolao");
       localStorage.setItem(BACKEND_CONFIG_KEY, JSON.stringify(config));
       state.backend.config = getBackendConfig();
       toast("Config do backend salva");
@@ -1273,6 +1450,8 @@
 
     function resetUserPredictions() {
       const user = document.getElementById("resetUser").value;
+      if (!user) return toast("Escolha um participante");
+      if (!confirm(`Resetar todos os palpites de ${user}?`)) return;
       delete state.data.predictions[user];
       saveData();
       toast("Palpites resetados");
