@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bolao da Copa 2026">
+  <rect width="512" height="512" rx="96" fill="#0A0E1A"/>
+  <circle cx="256" cy="256" r="178" fill="#F0F4FF"/>
+  <path fill="#0A0E1A" d="M256 102l70 51-27 82h-86l-27-82 70-51z"/>
+  <path fill="#00C896" d="M116 220l72-52 27 84-70 50-66-48 37-34zM396 220l-72-52-27 84 70 50 66-48-37-34z"/>
+  <path fill="#FFD700" d="M174 386l27-84h112l27 84-84 38-82-38z"/>
+  <path fill="#0A0E1A" d="M145 302l70-50h82l70 50-27 84H174l-29-84z" opacity=".92"/>
+  <text x="256" y="333" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="88" font-weight="900" fill="#FFD700">26</text>
+</svg>

@@ -3,6 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A0E1A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bolao da Copa">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/app-icon.svg">
   <title>Bolao da Copa 2026</title>
   <style>
     :root {
@@ -133,6 +139,50 @@
       letter-spacing: 0;
     }
     .hero p { margin: 0; max-width: 620px; color: var(--muted); font-size: 1.05rem; }
+    .front-info {
+      display: grid;
+      gap: 12px;
+      max-width: 860px;
+      grid-template-columns: 1fr;
+    }
+    .rule-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .rule-list li {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 8px;
+      align-items: start;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .rule-list b { color: var(--text); }
+    .rule-dot {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255, 215, 0, .16);
+      color: var(--gold);
+      font-size: .75rem;
+      font-weight: 900;
+    }
+    .install-box {
+      display: grid;
+      gap: 10px;
+      border: 1px solid rgba(0, 200, 150, .42);
+      background: linear-gradient(135deg, rgba(0, 200, 150, .14), rgba(77, 163, 255, .08));
+    }
+    .install-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
     .login-grid { display: grid; gap: 12px; grid-template-columns: 1fr; max-width: 760px; }
     .quick-users { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
     .user-tile {
@@ -274,6 +324,8 @@
 
     @media (min-width: 760px) {
       .login-grid { grid-template-columns: 1fr 280px; align-items: start; }
+      .front-info { grid-template-columns: 1.15fr .85fr; }
+      .install-actions { grid-template-columns: auto 1fr; align-items: center; }
       .grid.two { grid-template-columns: 1.2fr .8fr; }
       .grid.three { grid-template-columns: repeat(3, 1fr); }
       .toolbar { grid-template-columns: 1fr 300px; align-items: center; }
@@ -377,6 +429,7 @@
       filter: "all",
       query: ""
     };
+    let deferredInstallPrompt = null;
 
     function toIso(date, time) {
       const [d,m,y] = date.split("/");
@@ -548,6 +601,25 @@
           <div>
             <h2>Bolao familiar da Copa 2026</h2>
             <p>Escolha seu nome, registre seus palpites ate uma hora antes dos jogos e acompanhe o ranking da familia em tempo real.</p>
+          </div>
+          <div class="front-info">
+            <div class="panel">
+              <h2>Regras rapidas</h2>
+              <ul class="rule-list">
+                <li><span class="rule-dot">1</span><span><b>Palpite fecha 1h antes</b> do inicio de cada jogo.</span></li>
+                <li><span class="rule-dot">2</span><span><b>Fase de grupos:</b> 10 pontos placar exato, 7 resultado + total de gols, 5 resultado.</span></li>
+                <li><span class="rule-dot">3</span><span><b>Mata-mata:</b> vale o placar dos 90 minutos; marque prorrogacao e quem passa.</span></li>
+                <li><span class="rule-dot">4</span><span><b>Ranking:</b> desempate por placares exatos, acertos e ordem alfabetica.</span></li>
+              </ul>
+            </div>
+            <div class="panel install-box">
+              <h2>Instalar aplicativo</h2>
+              <p class="mini">Use como app no celular, com atalho na tela inicial. Os dados continuam salvos neste navegador.</p>
+              <div class="install-actions">
+                <button class="success" onclick="installApp()">Instalar app</button>
+                <span class="mini" id="installHint">${installHintText()}</span>
+              </div>
+            </div>
           </div>
           <div class="login-grid">
             <div class="panel">
@@ -922,6 +994,26 @@
       });
     }
 
+    function installHintText() {
+      if (deferredInstallPrompt) return "Seu navegador ja liberou a instalacao.";
+      if (navigator.standalone || window.matchMedia("(display-mode: standalone)").matches) return "O app ja esta instalado.";
+      return "No iPhone: Compartilhar > Adicionar a Tela de Inicio. No Android: menu do navegador > Instalar app.";
+    }
+
+    async function installApp() {
+      if (navigator.standalone || window.matchMedia("(display-mode: standalone)").matches) {
+        return toast("App ja instalado");
+      }
+      if (!deferredInstallPrompt) {
+        return toast("Use o menu do navegador para instalar");
+      }
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      toast(choice.outcome === "accepted" ? "Instalacao iniciada" : "Instalacao cancelada");
+      renderLogin();
+    }
+
     function scheduleNotifications() {
       if (!("Notification" in window) || Notification.permission !== "granted" || !state.session) return;
       const user = state.session.name;
@@ -967,6 +1059,24 @@
       render();
     });
     document.getElementById("notifyBtn").addEventListener("click", requestNotifications);
+
+    window.addEventListener("beforeinstallprompt", event => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      if (state.view === "login") renderLogin();
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      toast("App instalado");
+      if (state.view === "login") renderLogin();
+    });
+
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
 
     setInterval(() => {
       if (state.session && (state.view === "games" || state.view === "dashboard")) render();

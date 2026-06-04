@@ -9,6 +9,7 @@ Abra `bolao_copa2026.html` no navegador.
 - Senha inicial do admin: `copa2026`
 - Os dados ficam salvos no `localStorage` do navegador
 - Nao precisa de servidor ou banco de dados
+- No celular, pode ser instalado como aplicativo pela tela inicial
 
 ## Hospedagem no GitHub Pages
 

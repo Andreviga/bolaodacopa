@@ -1,0 +1,19 @@
+{
+  "name": "Bolao da Copa 2026",
+  "short_name": "Bolao 2026",
+  "description": "Bolao familiar da Copa do Mundo 2026.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0A0E1A",
+  "theme_color": "#0A0E1A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
