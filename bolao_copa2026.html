@@ -458,7 +458,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.5";
+    const APP_VERSION = "2026.06.03.6";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -520,11 +520,18 @@
       } catch {
         localConfig = {};
       }
-      return {
+      const merged = {
         ...DEFAULT_BACKEND_CONFIG,
-        ...(window.BOLAO_BACKEND || {}),
-        ...localConfig
+        ...(window.BOLAO_BACKEND || {})
       };
+      Object.entries(localConfig || {}).forEach(([key, value]) => {
+        if (typeof value === "string") {
+          if (value.trim()) merged[key] = value.trim();
+          return;
+        }
+        if (value !== null && value !== undefined) merged[key] = value;
+      });
+      return merged;
     }
 
     function backendIsConfigured() {
@@ -615,6 +622,14 @@
       return Number.isFinite(time) ? time : 0;
     }
 
+    function participantsSignature(data) {
+      return JSON.stringify((data?.participants || []).map(name => String(name).trim()).filter(Boolean));
+    }
+
+    function hasCustomParticipants(data) {
+      return participantsSignature(data) !== JSON.stringify(["Ana", "Bruno", "Carla", "Diego", "Eva"]);
+    }
+
     async function initBackend() {
       state.backend.config = getBackendConfig();
       clearInterval(state.backend.pollTimer);
@@ -666,6 +681,12 @@
         }
 
         if (dataTimestamp(remoteData) > dataTimestamp(state.data)) {
+          if (hasCustomParticipants(state.data) && participantsSignature(remoteData) !== participantsSignature(state.data)) {
+            state.backend.status = "conflict";
+            state.backend.error = "Os participantes deste navegador diferem do banco. Revise no Admin antes de sincronizar.";
+            renderBackendOnly();
+            return;
+          }
           state.data = remoteData;
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
           state.backend.status = "online";
@@ -840,7 +861,8 @@
         .sort((a,b) => gameDeadline(a) - gameDeadline(b));
       const missed = games.filter(g => !getPred(user, g.id) && isLocked(g) && !g.result);
 
-      if (state.backend.status === "offline") alerts.push(alertItem("error", "Sincronizacao falhou", state.backend.error || "Sem conexao com o banco. Seus dados ficam locais ate voltar."));
+      if (state.backend.status === "conflict") alerts.push(alertItem("error", "Dados locais diferentes do banco", state.backend.error || "Revise no Admin antes de sincronizar."));
+      else if (state.backend.status === "offline") alerts.push(alertItem("error", "Sincronizacao falhou", state.backend.error || "Sem conexao com o banco. Seus dados ficam locais ate voltar."));
       else if (!backendIsConfigured()) alerts.push(alertItem("warn", "Modo local", "Os dados deste navegador nao aparecem para os outros participantes."));
       else if (state.backend.status === "saving" || state.backend.status === "syncing") alerts.push(alertItem("info", "Sincronizando", "Aguarde alguns segundos antes de fechar o app."));
 
@@ -871,7 +893,8 @@
         .filter(g => new Date(g.datetime).getTime() - now <= 7 * 24 * 3600000)
         .sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
 
-      if (state.backend.status === "offline") alerts.push(alertItem("error", "Backend offline", state.backend.error || "Nao foi possivel sincronizar com o Supabase."));
+      if (state.backend.status === "conflict") alerts.push(alertItem("error", "Conflito de sincronizacao", state.backend.error || "Os dados locais diferem do banco."));
+      else if (state.backend.status === "offline") alerts.push(alertItem("error", "Backend offline", state.backend.error || "Nao foi possivel sincronizar com o Supabase."));
       else if (!backendIsConfigured()) alerts.push(alertItem("error", "Backend nao configurado", "Configure Supabase para todos verem o mesmo ranking."));
       else if (state.backend.status === "saving" || state.backend.status === "syncing") alerts.push(alertItem("info", "Sincronizando dados", "Aguarde a confirmacao antes de fechar o app."));
 
@@ -1256,6 +1279,7 @@
         syncing: "Sincronizando...",
         saving: "Salvando no banco...",
         online: "Online e sincronizado.",
+        conflict: `Conflito: ${state.backend.error || "dados locais diferem do banco"}`,
         offline: `Offline: ${state.backend.error || "sem conexao com o banco"}`,
         local: "Modo local."
       };
@@ -1280,8 +1304,10 @@
           <div class="actions">
             <button class="success" onclick="saveBackendConfigNow()">Salvar config neste navegador</button>
             <button onclick="syncNow()">Sincronizar agora</button>
+            <button onclick="forcePushLocalData()">Enviar meus dados para o banco</button>
+            <button onclick="clearBackendOverride()">Limpar config local</button>
           </div>
-          <p class="mini">Para valer em todos os celulares, preencha tambem o arquivo backend-config.js e publique no GitHub.</p>
+          <p class="mini">Se os participantes ficaram presos neste aparelho, clique em "Enviar meus dados para o banco".</p>
         </div>`;
     }
 
@@ -1463,6 +1489,24 @@
       if (!backendIsConfigured()) return toast("Configure o backend primeiro");
       pullBackendData({ pushIfMissing: true });
       toast("Sincronizando");
+    }
+
+    function clearBackendOverride() {
+      localStorage.removeItem(BACKEND_CONFIG_KEY);
+      state.backend.config = getBackendConfig();
+      toast("Config local limpa");
+      initBackend();
+    }
+
+    function forcePushLocalData() {
+      if (!backendIsConfigured()) return toast("Backend nao configurado");
+      const names = state.data.participants.join(", ");
+      const ok = confirm(`Enviar os dados deste navegador para o banco?\n\nParticipantes atuais: ${names}\n\nIsso atualiza o bolao para todos.`);
+      if (!ok) return;
+      touchData();
+      localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      pushBackendData();
+      toast("Enviando para o banco");
     }
 
     function resetUserPredictions() {
