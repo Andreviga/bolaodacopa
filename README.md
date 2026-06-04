@@ -41,6 +41,20 @@ Se o nome do projeto for `copammv`, o link final deve ficar:
 
 O arquivo `vercel.json` ja configura cache baixo para HTML, `sw.js` e `backend-config.js`, evitando que uma versao antiga fique presa no navegador.
 
+### Resultados automaticos
+
+Para preencher resultados reais automaticamente, configure na Vercel:
+
+- `APISPORTS_KEY`: sua chave da API-FOOTBALL/API-SPORTS
+- `RESULTS_LEAGUE_ID`: `1`
+- `RESULTS_SEASON`: `2026`
+
+Depois do deploy, o Admin pode usar:
+
+`Admin > Resultados automaticos > Atualizar resultados`
+
+O app busca `/api/results`, casa os jogos pelo nome dos times e salva os placares finais no Supabase.
+
 ## Hospedagem no GitHub Pages
 
 Depois de enviar o repositorio para o GitHub:

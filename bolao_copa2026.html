@@ -458,7 +458,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.8";
+    const APP_VERSION = "2026.06.03.9";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -508,6 +508,13 @@
         error: "",
         lastSync: "",
         saveTimer: null,
+        pollTimer: null
+      },
+      results: {
+        status: "idle",
+        error: "",
+        lastCheck: "",
+        lastApplied: 0,
         pollTimer: null
       }
     };
@@ -738,6 +745,110 @@
       if (state.session?.role === "admin" && state.view === "admin") renderAdmin();
     }
 
+    function renderAdminOnly() {
+      if (state.session?.role === "admin" && state.view === "admin") renderAdmin();
+      if (state.session && state.view === "dashboard") renderDashboard();
+    }
+
+    function shouldCheckResults() {
+      const now = Date.now();
+      return state.data.games.some(game => !game.result && new Date(game.datetime).getTime() + 2 * 3600000 < now);
+    }
+
+    function initResultAutoUpdate() {
+      clearInterval(state.results.pollTimer);
+      if (shouldCheckResults()) {
+        setTimeout(() => updateResultsFromApi({ force: false, silent: true }), 2500);
+      }
+      state.results.pollTimer = setInterval(() => {
+        if (shouldCheckResults()) updateResultsFromApi({ force: false, silent: true });
+      }, 30 * 60 * 1000);
+    }
+
+    function finalResultStatus(status) {
+      return ["FT", "AET", "PEN"].includes(status);
+    }
+
+    function findLocalGameForApiMatch(match) {
+      const key = teamPairKey(match.homeTeam, match.awayTeam);
+      const candidates = state.data.games.filter(game => teamPairKey(game.homeTeam, game.awayTeam) === key);
+      if (!candidates.length) return null;
+      if (candidates.length === 1) return candidates[0];
+      const matchTime = match.date ? new Date(match.date).getTime() : 0;
+      return candidates
+        .map(game => ({ game, diff: Math.abs(new Date(game.datetime).getTime() - matchTime) }))
+        .sort((a,b) => a.diff - b.diff)[0].game;
+    }
+
+    function applyApiResults(matches, options = {}) {
+      const updates = [];
+      const conflicts = [];
+
+      matches.filter(match => finalResultStatus(match.statusShort)).forEach(match => {
+        if (!Number.isInteger(match.home) || !Number.isInteger(match.away)) return;
+        const game = findLocalGameForApiMatch(match);
+        if (!game) return;
+
+        const nextResult = { home: match.home, away: match.away };
+        const existing = game.result;
+        const differs = existing && (existing.home !== nextResult.home || existing.away !== nextResult.away);
+        if (differs && !options.force) {
+          conflicts.push(`${game.id}: local ${existing.home}x${existing.away}, API ${nextResult.home}x${nextResult.away}`);
+          return;
+        }
+
+        if (!existing || differs) {
+          game.result = nextResult;
+          game.status = "finished";
+          if (game.type === "knockout") {
+            game.wentOvertime = !!match.wentOvertime;
+            game.advancedTeam = match.winner ? (resultCanonicalTeam(match.winner) === resultCanonicalTeam(game.homeTeam) ? game.homeTeam : game.awayTeam) : game.advancedTeam;
+          }
+          updates.push(`${game.id} ${teamText(game.homeTeam)} ${nextResult.home} x ${nextResult.away} ${teamText(game.awayTeam)}`);
+        }
+      });
+
+      return { updates, conflicts };
+    }
+
+    async function updateResultsFromApi(options = {}) {
+      if (!options.silent && options.force) {
+        const ok = confirm("Buscar resultados oficiais pela API e sobrescrever placares divergentes?");
+        if (!ok) return;
+      }
+
+      state.results.status = "checking";
+      state.results.error = "";
+      renderAdminOnly();
+
+      try {
+        const response = await fetch("api/results", { cache: "no-store" });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.message || payload.error || `API ${response.status}`);
+        }
+
+        const { updates, conflicts } = applyApiResults(payload.matches || [], options);
+        state.results.status = "online";
+        state.results.lastCheck = payload.checkedAt || new Date().toISOString();
+        state.results.lastApplied = updates.length;
+        state.results.error = conflicts.length ? `Conflitos: ${conflicts.slice(0, 2).join("; ")}` : "";
+
+        if (updates.length) {
+          saveData();
+          if (!options.silent) toast(`${updates.length} resultado(s) atualizado(s)`);
+        } else if (!options.silent) {
+          toast(conflicts.length ? "Ha conflitos para revisar" : "Nenhum resultado novo");
+        }
+        render();
+      } catch (error) {
+        state.results.status = "offline";
+        state.results.error = error.message || "erro ao buscar resultados";
+        if (!options.silent) toast("Resultados automaticos indisponiveis");
+        renderAdminOnly();
+      }
+    }
+
     function setSession(session) {
       state.session = session;
       localStorage.setItem("bolaoSession", JSON.stringify(session));
@@ -829,6 +940,63 @@
       return `${flagForTeam(name)} ${name}`;
     }
 
+    const RESULT_TEAM_ALIASES = {
+      "algeria": "argelia",
+      "austria": "austria",
+      "belgium": "belgica",
+      "brazil": "brasil",
+      "canada": "canada",
+      "cape verde": "cabo verde",
+      "colombia": "colombia",
+      "costa rica": "costa rica",
+      "curacao": "curacao",
+      "czech republic": "republica tcheca",
+      "ecuador": "equador",
+      "egypt": "egito",
+      "england": "inglaterra",
+      "france": "franca",
+      "germany": "alemanha",
+      "ghana": "gana",
+      "haiti": "haiti",
+      "iran": "ira",
+      "italy": "italia",
+      "ivory coast": "costa do marfim",
+      "japan": "japao",
+      "jordan": "jordania",
+      "mexico": "mexico",
+      "morocco": "marrocos",
+      "netherlands": "holanda",
+      "new zealand": "nova zelandia",
+      "norway": "noruega",
+      "panama": "panama",
+      "paraguay": "paraguai",
+      "portugal": "portugal",
+      "qatar": "catar",
+      "saudi arabia": "arabia saudita",
+      "scotland": "escocia",
+      "senegal": "senegal",
+      "south africa": "africa do sul",
+      "south korea": "coreia do sul",
+      "spain": "espanha",
+      "switzerland": "suica",
+      "tunisia": "tunisia",
+      "turkey": "turquia",
+      "ukraine": "ucrania",
+      "uruguay": "uruguai",
+      "usa": "estados unidos",
+      "united states": "estados unidos",
+      "uzbekistan": "uzbequistao"
+    };
+
+    function resultCanonicalTeam(name) {
+      const normalized = normalizeTeamName(name);
+      return RESULT_TEAM_ALIASES[normalized] || normalized;
+    }
+
+    function teamPairKey(home, away) {
+      return [resultCanonicalTeam(home), resultCanonicalTeam(away)].sort().join("|");
+    }
+
     function timeLeft(ms) {
       if (ms <= 0) return "prazo encerrado";
       const h = Math.floor(ms / 3600000);
@@ -897,6 +1065,8 @@
       else if (state.backend.status === "offline") alerts.push(alertItem("error", "Backend offline", state.backend.error || "Nao foi possivel sincronizar com o Supabase."));
       else if (!backendIsConfigured()) alerts.push(alertItem("error", "Backend nao configurado", "Configure Supabase para todos verem o mesmo ranking."));
       else if (state.backend.status === "saving" || state.backend.status === "syncing") alerts.push(alertItem("info", "Sincronizando dados", "Aguarde a confirmacao antes de fechar o app."));
+      if (state.results.status === "offline") alerts.push(alertItem("warn", "Resultados automaticos indisponiveis", state.results.error || "Configure APISPORTS_KEY na Vercel."));
+      if (state.results.status === "checking") alerts.push(alertItem("info", "Buscando resultados", "A API de placares esta sendo consultada agora."));
 
       if (participants.length < 5) alerts.push(alertItem("warn", "Poucos participantes", `O bolao recomenda 5 a 15 pessoas. Agora tem ${participants.length}.`));
       if (participants.length > 15) alerts.push(alertItem("error", "Participantes demais", "Remova nomes ate ficar no maximo com 15."));
@@ -1311,6 +1481,32 @@
         </div>`;
     }
 
+    function resultsStatusLabel() {
+      const labels = {
+        idle: "Ainda nao verificado.",
+        checking: "Buscando resultados na API...",
+        online: "API de resultados conectada.",
+        offline: `Indisponivel: ${state.results.error || "configure APISPORTS_KEY na Vercel"}`
+      };
+      const last = state.results.lastCheck ? ` Ultima busca: ${dateLabel(state.results.lastCheck)}.` : "";
+      const applied = state.results.lastApplied ? ` Ultima atualizacao: ${state.results.lastApplied} resultado(s).` : "";
+      return `${labels[state.results.status] || labels.idle}${last}${applied}`;
+    }
+
+    function resultsPanelHtml() {
+      return `
+        <div class="panel">
+          <h2>Resultados automaticos</h2>
+          <p class="mini">${escapeHtml(resultsStatusLabel())}</p>
+          ${state.results.error ? `<p class="mini">${escapeHtml(state.results.error)}</p>` : ""}
+          <div class="actions">
+            <button class="success" onclick="updateResultsFromApi({force:false})">Atualizar resultados</button>
+            <button onclick="updateResultsFromApi({force:true})">Forcar sobrescrita</button>
+          </div>
+          <p class="mini">Usa a rota Vercel /api/results. Configure APISPORTS_KEY para ativar.</p>
+        </div>`;
+    }
+
     function renderAdmin() {
       if (state.session?.role !== "admin") return;
       const options = state.data.games.map(g => `<option value="${g.id}">${g.id} · ${escapeHtml(teamText(g.homeTeam))} x ${escapeHtml(teamText(g.awayTeam))}</option>`).join("");
@@ -1335,6 +1531,7 @@
             </div>
           </div>
           ${backendPanelHtml()}
+          ${resultsPanelHtml()}
           <div class="panel">
             <h2>Resultado real</h2>
             <select id="adminGame" onchange="fillAdminGame()">${options}</select>
@@ -1642,6 +1839,7 @@
 
     if (state.session) state.view = "dashboard";
     initBackend();
+    initResultAutoUpdate();
     scheduleNotifications();
     render();
   </script>
