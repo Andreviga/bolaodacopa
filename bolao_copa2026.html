@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.08.15";
+    const APP_VERSION = "2026.06.08.16";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -526,6 +526,7 @@
       session: JSON.parse(localStorage.getItem("bolaoSession") || "null"),
       view: "login",
       filter: "all",
+      gameOrder: "dateAsc",
       query: "",
       backend: {
         config: getBackendConfig(),
@@ -1603,6 +1604,53 @@
         </div>`;
     }
 
+    const GAME_ORDER_OPTIONS = [
+      ["dateAsc", "Data: primeiros jogos"],
+      ["dateDesc", "Data: ultimos jogos"],
+      ["deadline", "Prazo: fecham primeiro"],
+      ["pendingFirst", "Pendentes primeiro"],
+      ["madeFirst", "Com palpite primeiro"],
+      ["openFirst", "Abertos primeiro"],
+      ["resultFirst", "Com resultado primeiro"],
+      ["phase", "Fase / grupo"],
+      ["team", "Time A-Z"]
+    ];
+
+    function gameOrderWeight(game, user) {
+      const pred = getPred(user, game.id);
+      const locked = isLocked(game);
+      const done = !!game.result;
+      return {
+        date: new Date(game.datetime).getTime(),
+        deadline: gameDeadline(game),
+        pending: !pred && !locked ? 0 : 1,
+        made: pred ? 0 : 1,
+        open: !locked ? 0 : 1,
+        result: done ? 0 : 1,
+        phase: `${game.type === "group" ? "0" : "1"}-${game.phase}-${game.id}`,
+        team: `${teamText(game.homeTeam)} ${teamText(game.awayTeam)} ${game.id}`.toLowerCase()
+      };
+    }
+
+    function compareGamesByOrder(a, b) {
+      const user = state.session.name;
+      const aw = gameOrderWeight(a, user);
+      const bw = gameOrderWeight(b, user);
+      const fallback = aw.date - bw.date || a.id.localeCompare(b.id);
+      const orderMap = {
+        dateAsc: () => fallback,
+        dateDesc: () => bw.date - aw.date || a.id.localeCompare(b.id),
+        deadline: () => aw.deadline - bw.deadline || fallback,
+        pendingFirst: () => aw.pending - bw.pending || fallback,
+        madeFirst: () => aw.made - bw.made || fallback,
+        openFirst: () => aw.open - bw.open || fallback,
+        resultFirst: () => aw.result - bw.result || fallback,
+        phase: () => aw.phase.localeCompare(bw.phase) || fallback,
+        team: () => aw.team.localeCompare(bw.team) || fallback
+      };
+      return (orderMap[state.gameOrder] || orderMap.dateAsc)();
+    }
+
     function filteredGames() {
       const user = state.session.name;
       const q = state.query.trim().toLowerCase();
@@ -1617,16 +1665,21 @@
           (state.filter === "closed" && (locked || done));
         const byQuery = !q || `${g.homeTeam} ${g.awayTeam} ${g.id} ${g.phase}`.toLowerCase().includes(q);
         return byFilter && byQuery;
-      });
+      }).sort(compareGamesByOrder);
     }
 
     function renderGames() {
       const filters = [["all","Todos"],["pending","Pendentes"],["made","Com palpite"],["closed","Bloqueados"]];
       const games = filteredGames();
+      const orderOptions = GAME_ORDER_OPTIONS.map(([id,label]) => `<option value="${id}" ${state.gameOrder === id ? "selected" : ""}>${label}</option>`).join("");
       document.getElementById("games").innerHTML = `
         <div class="toolbar">
           <div class="filters">${filters.map(([id,label]) => `<button class="chip ${state.filter===id?"active":""}" onclick="setFilter('${id}')">${label}</button>`).join("")}</div>
-          <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
+          <div class="form-row">
+            <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
+            <select aria-label="Ordenar jogos" onchange="setGameOrder(this.value)">${orderOptions}</select>
+          </div>
+          <p class="mini">${games.length} jogo(s) exibido(s). Use a busca, os filtros e a ordem para achar seus palpites.</p>
         </div>
         <div class="game-list">${games.length ? games.map(g => gameCard(g)).join("") : alertsHtml([alertItem("info", "Nenhum jogo encontrado", "Limpe a busca ou troque o filtro para ver mais jogos.")], "Aviso")}</div>`;
     }
@@ -2259,6 +2312,7 @@
       input.value = Math.max(0, Number(input.value || 0) + diff);
     }
     function setFilter(id) { state.filter = id; renderGames(); }
+    function setGameOrder(value) { state.gameOrder = value; renderGames(); }
     function setQuery(value) { state.query = value; renderGames(); }
     function go(id) { state.view = id; render(); }
     function goAdminGame(id) { state.view = "admin"; render(); document.getElementById("adminGame").value = id; fillAdminGame(); }
