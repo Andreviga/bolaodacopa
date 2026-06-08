@@ -482,10 +482,11 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.08.13";
+    const APP_VERSION = "2026.06.08.14";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
+    const BACKEND_POLL_MS = 10000;
     const TZ_OFFSET = "-03:00";
     const DEFAULT_BACKEND_CONFIG = {
       provider: "supabase",
@@ -532,6 +533,7 @@
         error: "",
         lastSync: "",
         hasLocalData: hasStoredData(),
+        lastRemoteData: null,
         saveTimer: null,
         pollTimer: null
       },
@@ -551,6 +553,86 @@
 
     function rememberLocalData() {
       if (state.backend) state.backend.hasLocalData = true;
+    }
+
+    function cloneData(data) {
+      if (data === undefined) return undefined;
+      if (data === null) return null;
+      return JSON.parse(JSON.stringify(data));
+    }
+
+    function rememberRemoteData(data) {
+      if (state.backend) state.backend.lastRemoteData = cloneData(data);
+    }
+
+    function sameJson(a, b) {
+      return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    }
+
+    function localChangedFromBase(key, localData, baseData) {
+      return !sameJson(localData?.[key], baseData?.[key]);
+    }
+
+    function mergeMapChanges(remoteMap = {}, localMap = {}, baseMap = {}) {
+      const merged = cloneData(remoteMap) || {};
+      const keys = new Set([...Object.keys(localMap || {}), ...Object.keys(baseMap || {})]);
+      keys.forEach(key => {
+        const localValue = localMap?.[key];
+        const baseValue = baseMap?.[key];
+        if (!sameJson(localValue, baseValue)) {
+          if (localValue === undefined) delete merged[key];
+          else merged[key] = cloneData(localValue) ?? localValue;
+        }
+      });
+      return merged;
+    }
+
+    function mergeNestedMapChanges(remoteMap = {}, localMap = {}, baseMap = {}) {
+      const merged = cloneData(remoteMap) || {};
+      const owners = new Set([...Object.keys(localMap || {}), ...Object.keys(baseMap || {})]);
+      owners.forEach(owner => {
+        const localItems = localMap?.[owner] || {};
+        const baseItems = baseMap?.[owner] || {};
+        const remoteItems = { ...(merged[owner] || {}) };
+        const itemKeys = new Set([...Object.keys(localItems), ...Object.keys(baseItems)]);
+        itemKeys.forEach(itemKey => {
+          const localValue = localItems[itemKey];
+          const baseValue = baseItems[itemKey];
+          if (!sameJson(localValue, baseValue)) {
+            if (localValue === undefined) delete remoteItems[itemKey];
+            else remoteItems[itemKey] = cloneData(localValue) ?? localValue;
+          }
+        });
+        if (Object.keys(remoteItems).length) merged[owner] = remoteItems;
+        else delete merged[owner];
+      });
+      return merged;
+    }
+
+    function canSyncAdminFields() {
+      return !state.session || state.session.role === "admin";
+    }
+
+    function mergeDataForBackend(remoteData, localData) {
+      const baseData = state.backend.lastRemoteData || {};
+      const hasKnownBase = !!state.backend.lastRemoteData;
+      const merged = cloneData(remoteData || localData) || defaultData();
+      const syncAdminFields = canSyncAdminFields();
+      const participantName = state.session?.role === "participant" ? state.session.name : "";
+      const localPredictions = participantName ? { [participantName]: localData.predictions?.[participantName] || {} } : localData.predictions;
+      const participantPassword = localData.participantPasswords?.[participantName];
+      const localPasswords = participantName ? (participantPassword !== undefined ? { [participantName]: participantPassword } : {}) : localData.participantPasswords;
+
+      ["participants", "adminPassword", "games", "rules"].forEach(key => {
+        if (syncAdminFields && hasKnownBase && localChangedFromBase(key, localData, baseData)) merged[key] = cloneData(localData[key]);
+      });
+
+      merged.predictions = mergeNestedMapChanges(remoteData?.predictions, localPredictions, baseData?.predictions);
+      merged.participantPasswords = mergeMapChanges(remoteData?.participantPasswords, localPasswords, baseData?.participantPasswords);
+      if (syncAdminFields && hasKnownBase && localChangedFromBase("settings", localData, baseData)) merged.settings = { ...(remoteData?.settings || {}), ...(localData.settings || {}) };
+      merged.rules = mergeRules(merged.rules);
+      merged.meta = { ...(remoteData?.meta || {}), ...(localData.meta || {}), version: APP_VERSION, updatedAt: new Date().toISOString() };
+      return merged;
     }
 
     function getBackendConfig() {
@@ -743,7 +825,7 @@
       state.backend.error = "";
       renderBackendOnly();
       await pullBackendData({ pushIfMissing: true });
-      state.backend.pollTimer = setInterval(() => pullBackendData(), 30000);
+      state.backend.pollTimer = setInterval(() => pullBackendData(), BACKEND_POLL_MS);
     }
 
     function scheduleBackendSave() {
@@ -754,18 +836,23 @@
       state.backend.saveTimer = setTimeout(() => pushBackendData(), 800);
     }
 
+    async function fetchBackendRow() {
+      const cfg = state.backend.config;
+      const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
+      const response = await fetch(url, {
+        headers: backendHeaders({ Accept: "application/json" }),
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error(`Supabase ${response.status}`);
+      const rows = await response.json();
+      return rows[0] || null;
+    }
+
     async function pullBackendData(options = {}) {
       if (!backendIsConfigured()) return;
       try {
-        const cfg = state.backend.config;
-        const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
-        const response = await fetch(url, {
-          headers: backendHeaders({ Accept: "application/json" }),
-          cache: "no-store"
-        });
-        if (!response.ok) throw new Error(`Supabase ${response.status}`);
-        const rows = await response.json();
-        const remoteData = rows[0]?.data;
+        const row = await fetchBackendRow();
+        const remoteData = row?.data;
 
         if (!remoteData) {
           if (options.pushIfMissing) await pushBackendData();
@@ -789,6 +876,7 @@
           state.data = remoteData;
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
           rememberLocalData();
+          rememberRemoteData(remoteData);
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
           render();
@@ -815,14 +903,20 @@
       if (!backendIsConfigured()) return;
       try {
         const cfg = state.backend.config;
+        const row = await fetchBackendRow();
+        const remoteData = row?.data || null;
+        const dataToSave = remoteData ? mergeDataForBackend(remoteData, state.data) : state.data;
         const response = await fetch(`${backendBaseUrl()}?on_conflict=id`, {
           method: "POST",
           headers: backendHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
-          body: JSON.stringify({ id: cfg.rowId, data: state.data }),
+          body: JSON.stringify({ id: cfg.rowId, data: dataToSave }),
           cache: "no-store"
         });
         if (!response.ok) throw new Error(`Supabase ${response.status}`);
+        state.data = dataToSave;
+        localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
         rememberLocalData();
+        rememberRemoteData(dataToSave);
         state.backend.status = "online";
         state.backend.error = "";
         state.backend.lastSync = new Date().toISOString();
