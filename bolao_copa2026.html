@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.08.18";
+    const APP_VERSION = "2026.06.08.19";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -1413,7 +1413,7 @@
     }
 
     function scorePrediction(game, pred) {
-      if (!game.result || !pred) return { points: 0, exact: 0, correct: 0 };
+      if (!game.result || !pred) return { points: 0, exact: 0, correct: 0, reason: pred ? "Aguardando resultado" : "Sem palpite" };
       const real = game.result;
       const realSign = sign(real.home - real.away);
       const predSign = sign(pred.home - pred.away);
@@ -1422,23 +1422,46 @@
       const score = scoringRules();
       let points = 0;
       let correct = 0;
+      let reason = "Nao pontuou";
 
       if (game.type === "group") {
-        if (exact) points = Number(score.groupExact) || 0;
-        else if (realSign === predSign && totalOk) points = Number(score.groupResultTotal) || 0;
-        else if (realSign === predSign) points = Number(score.groupResult) || 0;
+        if (exact) {
+          points = Number(score.groupExact) || 0;
+          reason = "Placar exato";
+        } else if (realSign === predSign && totalOk) {
+          points = Number(score.groupResultTotal) || 0;
+          reason = "Resultado e total de gols";
+        } else if (realSign === predSign) {
+          points = Number(score.groupResult) || 0;
+          reason = "Resultado correto";
+        }
         if (realSign === predSign) correct = 1;
       } else {
         const advancedOk = pred.advancedTeam && game.advancedTeam && pred.advancedTeam === game.advancedTeam;
-        if (exact) points = Number(score.knockoutExact) || 0;
-        else if (realSign === predSign && totalOk) points = Number(score.knockoutResultTotal) || 0;
-        else if (realSign !== 0 && realSign === predSign) points = Number(score.knockoutResult) || 0;
-        else if (realSign === 0 && predSign === 0 && advancedOk) points = Number(score.knockoutDrawAdvanced) || 0;
-        else if (advancedOk) points = Number(score.knockoutAdvanced) || 0;
+        const overtimeBonus = pred.overtime === true && game.wentOvertime === true ? Number(score.overtimeBonus) || 0 : 0;
+        if (exact) {
+          points = Number(score.knockoutExact) || 0;
+          reason = "Placar exato";
+        } else if (realSign === predSign && totalOk) {
+          points = Number(score.knockoutResultTotal) || 0;
+          reason = "Resultado e total de gols";
+        } else if (realSign !== 0 && realSign === predSign) {
+          points = Number(score.knockoutResult) || 0;
+          reason = "Resultado nos 90 min";
+        } else if (realSign === 0 && predSign === 0 && advancedOk) {
+          points = Number(score.knockoutDrawAdvanced) || 0;
+          reason = "Empate e classificado";
+        } else if (advancedOk) {
+          points = Number(score.knockoutAdvanced) || 0;
+          reason = "Classificado correto";
+        }
         if (realSign === predSign || advancedOk) correct = 1;
-        if (pred.overtime === true && game.wentOvertime === true) points += Number(score.overtimeBonus) || 0;
+        if (overtimeBonus) {
+          points += overtimeBonus;
+          reason += " + bonus prorrogacao";
+        }
       }
-      return { points, exact: exact ? 1 : 0, correct };
+      return { points, exact: exact ? 1 : 0, correct, reason };
     }
 
     function scores() {
@@ -1851,6 +1874,48 @@
       renderGames();
     }
 
+    function predictionLabel(game, pred) {
+      if (!pred) return "Sem palpite";
+      const advanced = game.type === "knockout" && pred.advancedTeam ? `, passa ${teamText(pred.advancedTeam)}` : "";
+      const overtime = game.type === "knockout" && pred.overtime ? ", prorrogacao" : "";
+      return `${pred.home} x ${pred.away}${advanced}${overtime}`;
+    }
+
+    function resultLabel(game) {
+      if (!game.result) return "Sem resultado";
+      const advanced = game.advancedTeam ? `, passou ${teamText(game.advancedTeam)}` : "";
+      const overtime = game.wentOvertime ? ", teve prorrogacao/penaltis" : "";
+      return `${game.result.home} x ${game.result.away}${advanced}${overtime}`;
+    }
+
+    function rankingBreakdownHtml() {
+      const finishedGames = state.data.games.filter(game => game.result).sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+      if (!finishedGames.length) {
+        return alertsHtml([alertItem("info", "Pontuacao ainda nao conferida", "Os detalhes dos pontos aparecem aqui depois que os resultados forem lancados.")], "Como os pontos foram contados");
+      }
+
+      return `
+        <div class="panel">
+          <h2>Como os pontos foram contabilizados</h2>
+          <p class="mini">Apenas jogos com resultado conferido aparecem aqui. Jogos sem resultado continuam escondidos para nao expor palpites antes da hora.</p>
+          <div class="grid">
+            ${finishedGames.map(game => {
+              const rows = state.data.participants.map(name => {
+                const pred = getPred(name, game.id);
+                const score = scorePrediction(game, pred);
+                return `<tr><td><b>${escapeHtml(name)}</b></td><td>${escapeHtml(predictionLabel(game, pred))}</td><td>${score.points}</td><td>${escapeHtml(score.reason)}</td></tr>`;
+              }).join("");
+              return `
+                <div class="panel" style="box-shadow:none">
+                  <h3>${game.id} · ${escapeHtml(game.phase)} · ${teamLabel(game.homeTeam)} x ${teamLabel(game.awayTeam)}</h3>
+                  <p class="mini">Resultado conferido: ${escapeHtml(resultLabel(game))}</p>
+                  <div class="table-wrap"><table><thead><tr><th>Participante</th><th>Palpite</th><th>Pontos</th><th>Motivo</th></tr></thead><tbody>${rows}</tbody></table></div>
+                </div>`;
+            }).join("")}
+          </div>
+        </div>`;
+    }
+
     function renderRanking() {
       const rows = scores();
       document.getElementById("ranking").innerHTML = `
@@ -1864,7 +1929,8 @@
           </div>
           <div style="height:12px"></div>
           <button class="primary" onclick="shareRanking()">Copiar ranking para WhatsApp</button>
-        </div>`;
+        </div>
+        ${rankingBreakdownHtml()}`;
     }
 
     function renderPerformance() {
