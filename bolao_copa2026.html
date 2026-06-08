@@ -482,10 +482,14 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.12";
+    const APP_VERSION = "2026.06.08.19";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
+    const BACKEND_POLL_MS = 3000;
+    const APP_TIME_ZONE = "America/Sao_Paulo";
+    const APP_TIME_ZONE_LABEL = "horario de Brasilia";
+    const SCHEDULE_VERSION = "2026.06.08.official-brt";
     const TZ_OFFSET = "-03:00";
     const DEFAULT_BACKEND_CONFIG = {
       provider: "supabase",
@@ -496,28 +500,29 @@
     };
 
     const GROUP_GAMES = [
-      ["A1","A","11/06/2026","16:00","Mexico","Africa do Sul"],["A2","A","12/06/2026","13:00","Coreia do Sul","Republica Tcheca"],["A3","A","17/06/2026","16:00","Mexico","Coreia do Sul"],["A4","A","17/06/2026","19:00","Africa do Sul","Republica Tcheca"],["A5","A","22/06/2026","22:00","Republica Tcheca","Mexico"],["A6","A","22/06/2026","22:00","Africa do Sul","Coreia do Sul"],
-      ["B1","B","12/06/2026","19:00","Canada","Catar"],["B2","B","12/06/2026","22:00","Suica","Italia"],["B3","B","18/06/2026","13:00","Canada","Suica"],["B4","B","18/06/2026","16:00","Catar","Italia"],["B5","B","23/06/2026","22:00","Italia","Canada"],["B6","B","23/06/2026","22:00","Catar","Suica"],
-      ["C1","C","13/06/2026","19:00","Brasil","Marrocos"],["C2","C","13/06/2026","22:00","Haiti","Escocia"],["C3","C","19/06/2026","16:00","Brasil","Haiti"],["C4","C","19/06/2026","19:00","Marrocos","Escocia"],["C5","C","24/06/2026","22:00","Escocia","Brasil"],["C6","C","24/06/2026","22:00","Haiti","Marrocos"],
-      ["D1","D","12/06/2026","16:00","Estados Unidos","Paraguai"],["D2","D","13/06/2026","13:00","Australia","Turquia"],["D3","D","18/06/2026","19:00","Estados Unidos","Australia"],["D4","D","18/06/2026","22:00","Turquia","Paraguai"],["D5","D","24/06/2026","19:00","Paraguai","Australia"],["D6","D","24/06/2026","19:00","Turquia","Estados Unidos"],
-      ["E1","E","14/06/2026","16:00","Alemanha","Curacao"],["E2","E","14/06/2026","19:00","Costa do Marfim","Equador"],["E3","E","20/06/2026","13:00","Alemanha","Costa do Marfim"],["E4","E","20/06/2026","16:00","Curacao","Equador"],["E5","E","25/06/2026","19:00","Equador","Alemanha"],["E6","E","25/06/2026","19:00","Curacao","Costa do Marfim"],
-      ["F1","F","14/06/2026","22:00","Holanda","Japao"],["F2","F","15/06/2026","13:00","Tunisia","Ucrania"],["F3","F","20/06/2026","19:00","Holanda","Tunisia"],["F4","F","20/06/2026","22:00","Japao","Ucrania"],["F5","F","25/06/2026","22:00","Ucrania","Holanda"],["F6","F","25/06/2026","22:00","Japao","Tunisia"],
-      ["G1","G","15/06/2026","16:00","Belgica","Egito"],["G2","G","15/06/2026","19:00","Ira","Nova Zelandia"],["G3","G","21/06/2026","13:00","Belgica","Ira"],["G4","G","21/06/2026","16:00","Egito","Nova Zelandia"],["G5","G","26/06/2026","16:00","Nova Zelandia","Belgica"],["G6","G","26/06/2026","16:00","Egito","Ira"],
-      ["H1","H","15/06/2026","22:00","Espanha","Cabo Verde"],["H2","H","16/06/2026","13:00","Arabia Saudita","Uruguai"],["H3","H","21/06/2026","19:00","Espanha","Arabia Saudita"],["H4","H","21/06/2026","22:00","Cabo Verde","Uruguai"],["H5","H","26/06/2026","19:00","Uruguai","Espanha"],["H6","H","26/06/2026","19:00","Cabo Verde","Arabia Saudita"],
-      ["I1","I","16/06/2026","16:00","Franca","Senegal"],["I2","I","16/06/2026","19:00","Noruega","Repescagem 2"],["I3","I","22/06/2026","13:00","Franca","Noruega"],["I4","I","22/06/2026","16:00","Senegal","Repescagem 2"],["I5","I","27/06/2026","16:00","Repescagem 2","Franca"],["I6","I","27/06/2026","16:00","Senegal","Noruega"],
-      ["J1","J","16/06/2026","22:00","Argentina","Argelia"],["J2","J","17/06/2026","13:00","Austria","Jordania"],["J3","J","22/06/2026","19:00","Argentina","Austria"],["J4","J","22/06/2026","22:00","Argelia","Jordania"],["J5","J","27/06/2026","19:00","Jordania","Argentina"],["J6","J","27/06/2026","19:00","Argelia","Austria"],
-      ["K1","K","17/06/2026","22:00","Portugal","Uzbequistao"],["K2","K","18/06/2026","13:00","Colombia","Repescagem 1"],["K3","K","23/06/2026","13:00","Portugal","Colombia"],["K4","K","23/06/2026","16:00","Uzbequistao","Repescagem 1"],["K5","K","27/06/2026","22:00","Repescagem 1","Portugal"],["K6","K","27/06/2026","22:00","Uzbequistao","Colombia"],
-      ["L1","L","17/06/2026","16:00","Inglaterra","Croacia"],["L2","L","17/06/2026","19:00","Gana","Panama"],["L3","L","23/06/2026","19:00","Inglaterra","Gana"],["L4","L","23/06/2026","22:00","Croacia","Panama"],["L5","L","28/06/2026","16:00","Panama","Inglaterra"],["L6","L","28/06/2026","16:00","Croacia","Gana"]
+      ["A1","A","11/06/2026","16:00","Mexico","Africa do Sul"],["A2","A","11/06/2026","23:00","Coreia do Sul","Republica Tcheca"],["A3","A","18/06/2026","22:00","Mexico","Coreia do Sul"],["A4","A","18/06/2026","13:00","Republica Tcheca","Africa do Sul"],["A5","A","24/06/2026","22:00","Republica Tcheca","Mexico"],["A6","A","24/06/2026","22:00","Africa do Sul","Coreia do Sul"],
+      ["B1","B","12/06/2026","16:00","Canada","Bosnia"],["B2","B","13/06/2026","16:00","Catar","Suica"],["B3","B","18/06/2026","19:00","Canada","Catar"],["B4","B","18/06/2026","16:00","Suica","Bosnia"],["B5","B","24/06/2026","16:00","Suica","Canada"],["B6","B","24/06/2026","16:00","Bosnia","Catar"],
+      ["C1","C","13/06/2026","19:00","Brasil","Marrocos"],["C2","C","13/06/2026","22:00","Haiti","Escocia"],["C3","C","19/06/2026","21:30","Brasil","Haiti"],["C4","C","19/06/2026","19:00","Escocia","Marrocos"],["C5","C","24/06/2026","19:00","Escocia","Brasil"],["C6","C","24/06/2026","19:00","Marrocos","Haiti"],
+      ["D1","D","12/06/2026","22:00","Estados Unidos","Paraguai"],["D2","D","14/06/2026","01:00","Australia","Turquia"],["D3","D","19/06/2026","16:00","Estados Unidos","Australia"],["D4","D","20/06/2026","01:00","Turquia","Paraguai"],["D5","D","25/06/2026","23:00","Paraguai","Australia"],["D6","D","25/06/2026","23:00","Turquia","Estados Unidos"],
+      ["E1","E","14/06/2026","14:00","Alemanha","Curacao"],["E2","E","14/06/2026","20:00","Costa do Marfim","Equador"],["E3","E","20/06/2026","17:00","Alemanha","Costa do Marfim"],["E4","E","20/06/2026","21:00","Equador","Curacao"],["E5","E","25/06/2026","17:00","Equador","Alemanha"],["E6","E","25/06/2026","17:00","Curacao","Costa do Marfim"],
+      ["F1","F","14/06/2026","17:00","Holanda","Japao"],["F2","F","14/06/2026","23:00","Suecia","Tunisia"],["F3","F","20/06/2026","14:00","Holanda","Suecia"],["F4","F","21/06/2026","01:00","Tunisia","Japao"],["F5","F","25/06/2026","20:00","Tunisia","Holanda"],["F6","F","25/06/2026","20:00","Japao","Suecia"],
+      ["G1","G","15/06/2026","16:00","Belgica","Egito"],["G2","G","15/06/2026","22:00","Ira","Nova Zelandia"],["G3","G","21/06/2026","16:00","Belgica","Ira"],["G4","G","21/06/2026","22:00","Nova Zelandia","Egito"],["G5","G","27/06/2026","00:00","Nova Zelandia","Belgica"],["G6","G","27/06/2026","00:00","Egito","Ira"],
+      ["H1","H","15/06/2026","13:00","Espanha","Cabo Verde"],["H2","H","15/06/2026","19:00","Arabia Saudita","Uruguai"],["H3","H","21/06/2026","13:00","Espanha","Arabia Saudita"],["H4","H","21/06/2026","19:00","Uruguai","Cabo Verde"],["H5","H","26/06/2026","21:00","Uruguai","Espanha"],["H6","H","26/06/2026","21:00","Cabo Verde","Arabia Saudita"],
+      ["I1","I","16/06/2026","16:00","Franca","Senegal"],["I2","I","16/06/2026","19:00","Iraque","Noruega"],["I3","I","22/06/2026","18:00","Franca","Iraque"],["I4","I","22/06/2026","21:00","Noruega","Senegal"],["I5","I","26/06/2026","16:00","Noruega","Franca"],["I6","I","26/06/2026","16:00","Senegal","Iraque"],
+      ["J1","J","16/06/2026","22:00","Argentina","Argelia"],["J2","J","17/06/2026","01:00","Austria","Jordania"],["J3","J","22/06/2026","14:00","Argentina","Austria"],["J4","J","23/06/2026","00:00","Jordania","Argelia"],["J5","J","27/06/2026","23:00","Jordania","Argentina"],["J6","J","27/06/2026","23:00","Argelia","Austria"],
+      ["K1","K","17/06/2026","14:00","Portugal","RD Congo"],["K2","K","17/06/2026","23:00","Uzbequistao","Colombia"],["K3","K","23/06/2026","14:00","Portugal","Uzbequistao"],["K4","K","23/06/2026","23:00","Colombia","RD Congo"],["K5","K","27/06/2026","20:30","RD Congo","Uzbequistao"],["K6","K","27/06/2026","20:30","Colombia","Portugal"],
+      ["L1","L","17/06/2026","17:00","Inglaterra","Croacia"],["L2","L","17/06/2026","20:00","Gana","Panama"],["L3","L","23/06/2026","17:00","Inglaterra","Gana"],["L4","L","23/06/2026","20:00","Panama","Croacia"],["L5","L","27/06/2026","18:00","Panama","Inglaterra"],["L6","L","27/06/2026","18:00","Croacia","Gana"]
     ];
 
     const KNOCKOUTS = [
-      ["R32-01","Rodada de 32","01/07/2026","13:00","1o Grupo A","2o Grupo B"],["R32-02","Rodada de 32","01/07/2026","16:00","1o Grupo C","2o Grupo D"],["R32-03","Rodada de 32","01/07/2026","19:00","1o Grupo E","2o Grupo F"],["R32-04","Rodada de 32","01/07/2026","22:00","1o Grupo G","2o Grupo H"],
-      ["R32-05","Rodada de 32","02/07/2026","13:00","1o Grupo I","2o Grupo J"],["R32-06","Rodada de 32","02/07/2026","16:00","1o Grupo K","2o Grupo L"],["R32-07","Rodada de 32","02/07/2026","19:00","1o Grupo B","2o Grupo A"],["R32-08","Rodada de 32","02/07/2026","22:00","1o Grupo D","2o Grupo C"],
-      ["R32-09","Rodada de 32","03/07/2026","13:00","1o Grupo F","2o Grupo E"],["R32-10","Rodada de 32","03/07/2026","16:00","1o Grupo H","2o Grupo G"],["R32-11","Rodada de 32","03/07/2026","19:00","1o Grupo J","2o Grupo I"],["R32-12","Rodada de 32","03/07/2026","22:00","1o Grupo L","2o Grupo K"],
-      ["R32-13","Rodada de 32","04/07/2026","13:00","3o colocado","Adversario definido"],["R32-14","Rodada de 32","04/07/2026","16:00","3o colocado","Adversario definido"],["R32-15","Rodada de 32","04/07/2026","19:00","3o colocado","Adversario definido"],["R32-16","Rodada de 32","04/07/2026","22:00","3o colocado","Adversario definido"],
-      ["OF-01","Oitavas","05/07/2026","16:00","Vencedor R32-01","Vencedor R32-02"],["OF-02","Oitavas","05/07/2026","20:00","Vencedor R32-03","Vencedor R32-04"],["OF-03","Oitavas","06/07/2026","16:00","Vencedor R32-05","Vencedor R32-06"],["OF-04","Oitavas","06/07/2026","20:00","Vencedor R32-07","Vencedor R32-08"],["OF-05","Oitavas","07/07/2026","16:00","Vencedor R32-09","Vencedor R32-10"],["OF-06","Oitavas","07/07/2026","20:00","Vencedor R32-11","Vencedor R32-12"],["OF-07","Oitavas","08/07/2026","16:00","Vencedor R32-13","Vencedor R32-14"],["OF-08","Oitavas","08/07/2026","20:00","Vencedor R32-15","Vencedor R32-16"],
-      ["QF-01","Quartas","10/07/2026","16:00","Vencedor OF-01","Vencedor OF-02"],["QF-02","Quartas","10/07/2026","20:00","Vencedor OF-03","Vencedor OF-04"],["QF-03","Quartas","11/07/2026","16:00","Vencedor OF-05","Vencedor OF-06"],["QF-04","Quartas","11/07/2026","20:00","Vencedor OF-07","Vencedor OF-08"],
-      ["SF-01","Semifinal","14/07/2026","20:00","Vencedor QF-01","Vencedor QF-02"],["SF-02","Semifinal","15/07/2026","20:00","Vencedor QF-03","Vencedor QF-04"],["3PL","3o lugar","18/07/2026","16:00","Perdedor SF-01","Perdedor SF-02"],["FIN","Final","19/07/2026","16:00","Vencedor SF-01","Vencedor SF-02"]
+      ["R32-01","Segunda fase 1","29/06/2026","17:30","1o Grupo E","3o ABCDF"],["R32-02","Segunda fase 2","30/06/2026","18:00","1o Grupo I","3o CDFGH"],["R32-03","Segunda fase 3","28/06/2026","16:00","2o Grupo A","2o Grupo B"],["R32-04","Segunda fase 4","29/06/2026","22:00","1o Grupo F","2o Grupo C"],
+      ["R32-05","Segunda fase 5","02/07/2026","20:00","2o Grupo K","2o Grupo L"],["R32-06","Segunda fase 6","02/07/2026","16:00","1o Grupo H","2o Grupo J"],["R32-07","Segunda fase 7","01/07/2026","21:00","1o Grupo D","3o BEFIJ"],["R32-08","Segunda fase 8","01/07/2026","17:00","1o Grupo G","3o AEHIJ"],
+      ["R32-09","Segunda fase 9","29/06/2026","14:00","1o Grupo C","2o Grupo F"],["R32-10","Segunda fase 10","30/06/2026","14:00","2o Grupo E","2o Grupo I"],["R32-11","Segunda fase 11","30/06/2026","22:00","1o Grupo A","3o CEFHI"],["R32-12","Segunda fase 12","01/07/2026","13:00","1o Grupo L","3o EHIJK"],
+      ["R32-13","Segunda fase 13","03/07/2026","19:00","1o Grupo J","2o Grupo H"],["R32-14","Segunda fase 14","03/07/2026","15:00","2o Grupo D","2o Grupo G"],["R32-15","Segunda fase 15","03/07/2026","00:00","1o Grupo B","3o EFGIJ"],["R32-16","Segunda fase 16","03/07/2026","22:30","1o Grupo K","3o DEIJL"],
+      ["OF-01","Oitavas 1","04/07/2026","18:00","Vencedor Segunda fase 1","Vencedor Segunda fase 2"],["OF-02","Oitavas 2","04/07/2026","14:00","Vencedor Segunda fase 3","Vencedor Segunda fase 4"],["OF-03","Oitavas 3","06/07/2026","16:00","Vencedor Segunda fase 5","Vencedor Segunda fase 6"],["OF-04","Oitavas 4","06/07/2026","21:00","Vencedor Segunda fase 7","Vencedor Segunda fase 8"],
+      ["OF-05","Oitavas 5","05/07/2026","17:00","Vencedor Segunda fase 9","Vencedor Segunda fase 10"],["OF-06","Oitavas 6","05/07/2026","21:00","Vencedor Segunda fase 11","Vencedor Segunda fase 12"],["OF-07","Oitavas 7","07/07/2026","13:00","Vencedor Segunda fase 13","Vencedor Segunda fase 14"],["OF-08","Oitavas 8","07/07/2026","17:00","Vencedor Segunda fase 15","Vencedor Segunda fase 16"],
+      ["QF-01","Quartas 1","09/07/2026","17:00","Vencedor Oitavas 1","Vencedor Oitavas 2"],["QF-02","Quartas 2","10/07/2026","16:00","Vencedor Oitavas 3","Vencedor Oitavas 4"],["QF-03","Quartas 3","11/07/2026","18:00","Vencedor Oitavas 5","Vencedor Oitavas 6"],["QF-04","Quartas 4","11/07/2026","22:00","Vencedor Oitavas 7","Vencedor Oitavas 8"],
+      ["SF-01","Semifinal 1","14/07/2026","16:00","Vencedor Quartas 1","Vencedor Quartas 2"],["SF-02","Semifinal 2","15/07/2026","16:00","Vencedor Quartas 3","Vencedor Quartas 4"],["3PL","3o lugar","18/07/2026","18:00","Perdedor Semifinal 1","Perdedor Semifinal 2"],["FIN","Final","19/07/2026","16:00","Vencedor Semifinal 1","Vencedor Semifinal 2"]
     ];
 
     const state = {
@@ -525,14 +530,20 @@
       session: JSON.parse(localStorage.getItem("bolaoSession") || "null"),
       view: "login",
       filter: "all",
+      gameOrder: "dateAsc",
       query: "",
       backend: {
         config: getBackendConfig(),
         status: "local",
         error: "",
         lastSync: "",
+        hasLocalData: hasStoredData(),
+        lastRemoteData: null,
+        lastRemoteUpdatedAt: "",
         saveTimer: null,
-        pollTimer: null
+        pollTimer: null,
+        syncInFlight: false,
+        saveQueued: false
       },
       results: {
         status: "idle",
@@ -543,6 +554,98 @@
       }
     };
     let deferredInstallPrompt = null;
+
+    function hasStoredData() {
+      return !!localStorage.getItem(STORE_KEY);
+    }
+
+    function rememberLocalData() {
+      if (state.backend) state.backend.hasLocalData = true;
+    }
+
+    function cloneData(data) {
+      if (data === undefined) return undefined;
+      if (data === null) return null;
+      return JSON.parse(JSON.stringify(data));
+    }
+
+    function rememberRemoteData(data, updatedAt = "") {
+      if (!state.backend) return;
+      state.backend.lastRemoteData = cloneData(data);
+      state.backend.lastRemoteUpdatedAt = updatedAt || new Date().toISOString();
+    }
+
+    function sameJson(a, b) {
+      return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    }
+
+    function localChangedFromBase(key, localData, baseData) {
+      return !sameJson(localData?.[key], baseData?.[key]);
+    }
+
+    function mergeMapChanges(remoteMap = {}, localMap = {}, baseMap = {}) {
+      const merged = cloneData(remoteMap) || {};
+      const keys = new Set([...Object.keys(localMap || {}), ...Object.keys(baseMap || {})]);
+      keys.forEach(key => {
+        const localValue = localMap?.[key];
+        const baseValue = baseMap?.[key];
+        if (!sameJson(localValue, baseValue)) {
+          if (localValue === undefined) delete merged[key];
+          else merged[key] = cloneData(localValue) ?? localValue;
+        }
+      });
+      return merged;
+    }
+
+    function mergeNestedMapChanges(remoteMap = {}, localMap = {}, baseMap = {}) {
+      const merged = cloneData(remoteMap) || {};
+      const owners = new Set([...Object.keys(localMap || {}), ...Object.keys(baseMap || {})]);
+      owners.forEach(owner => {
+        const localItems = localMap?.[owner] || {};
+        const baseItems = baseMap?.[owner] || {};
+        const remoteItems = { ...(merged[owner] || {}) };
+        const itemKeys = new Set([...Object.keys(localItems), ...Object.keys(baseItems)]);
+        itemKeys.forEach(itemKey => {
+          const localValue = localItems[itemKey];
+          const baseValue = baseItems[itemKey];
+          if (!sameJson(localValue, baseValue)) {
+            if (localValue === undefined) delete remoteItems[itemKey];
+            else remoteItems[itemKey] = cloneData(localValue) ?? localValue;
+          }
+        });
+        if (Object.keys(remoteItems).length) merged[owner] = remoteItems;
+        else delete merged[owner];
+      });
+      return merged;
+    }
+
+    function canSyncAdminFields() {
+      return !state.session || state.session.role === "admin";
+    }
+
+    function mergeDataForBackend(remoteData, localData, options = {}) {
+      if (options.forceLocal) return { ...cloneData(localData), meta: { ...(localData.meta || {}), version: APP_VERSION, updatedAt: new Date().toISOString() } };
+
+      const baseData = state.backend.lastRemoteData || {};
+      const hasKnownBase = !!state.backend.lastRemoteData;
+      const merged = cloneData(remoteData || localData) || defaultData();
+      const syncAdminFields = canSyncAdminFields();
+      const participantName = state.session?.role === "participant" ? state.session.name : "";
+      const localPredictions = participantName ? { [participantName]: localData.predictions?.[participantName] || {} } : localData.predictions;
+      const participantPassword = localData.participantPasswords?.[participantName];
+      const localPasswords = participantName ? (participantPassword !== undefined ? { [participantName]: participantPassword } : {}) : localData.participantPasswords;
+
+      ["participants", "adminPassword", "games", "rules"].forEach(key => {
+        if (syncAdminFields && hasKnownBase && localChangedFromBase(key, localData, baseData)) merged[key] = cloneData(localData[key]);
+      });
+
+      merged.predictions = mergeNestedMapChanges(remoteData?.predictions, localPredictions, baseData?.predictions);
+      merged.participantPasswords = mergeMapChanges(remoteData?.participantPasswords, localPasswords, baseData?.participantPasswords);
+      if (syncAdminFields && hasKnownBase && localChangedFromBase("settings", localData, baseData)) merged.settings = { ...(remoteData?.settings || {}), ...(localData.settings || {}) };
+      merged.rules = mergeRules(merged.rules);
+      merged.meta = { ...(remoteData?.meta || {}), ...(localData.meta || {}), version: APP_VERSION, updatedAt: new Date().toISOString() };
+      return merged;
+    }
 
     function getBackendConfig() {
       let localConfig = {};
@@ -648,12 +751,47 @@
       { key: "overtimeBonus", label: "Bonus: acertou prorrogacao" }
     ];
 
+    function scheduledGames() {
+      return GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true)));
+    }
+
+    function mergeScheduledGames(savedGames, officialGames) {
+      if (!Array.isArray(savedGames) || !savedGames.length) return officialGames;
+      const savedById = new Map(savedGames.map(game => [game.id, game]));
+      return officialGames.map(official => {
+        const saved = savedById.get(official.id);
+        if (!saved) return official;
+        return {
+          ...saved,
+          group: official.group,
+          phase: official.phase,
+          type: official.type,
+          homeTeam: official.homeTeam,
+          awayTeam: official.awayTeam,
+          datetime: official.datetime
+        };
+      });
+    }
+
+    function normalizeScheduleData(data) {
+      const officialGames = scheduledGames();
+      const scheduleIsCurrent = data?.meta?.scheduleVersion === SCHEDULE_VERSION;
+      if (!data) return { data: defaultData(), changed: true };
+      if (scheduleIsCurrent) return { data, changed: false };
+      const normalized = {
+        ...data,
+        games: mergeScheduledGames(data.games, officialGames),
+        meta: { ...(data.meta || {}), version: APP_VERSION, scheduleVersion: SCHEDULE_VERSION, updatedAt: new Date().toISOString() }
+      };
+      return { data: normalized, changed: true };
+    }
+
     function defaultData() {
       return {
-        meta: { version: APP_VERSION, updatedAt: new Date().toISOString() },
+        meta: { version: APP_VERSION, scheduleVersion: SCHEDULE_VERSION, updatedAt: new Date().toISOString() },
         participants: ["Ana", "Bruno", "Carla", "Diego", "Eva"],
         adminPassword: DEFAULT_PASSWORD,
-        games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
+        games: scheduledGames(),
         predictions: {},
         participantPasswords: {},
         rules: defaultRules(),
@@ -667,7 +805,7 @@
       try {
         const parsed = JSON.parse(raw);
         const base = defaultData();
-        return {
+        const merged = {
           ...base,
           ...parsed,
           meta: { ...base.meta, ...(parsed.meta || {}) },
@@ -676,6 +814,9 @@
           participantPasswords: parsed.participantPasswords || {},
           rules: mergeRules(parsed.rules)
         };
+        const normalized = normalizeScheduleData(merged);
+        if (normalized.changed) localStorage.setItem(STORE_KEY, JSON.stringify(normalized.data));
+        return normalized.data;
       } catch {
         return defaultData();
       }
@@ -690,6 +831,7 @@
     function saveData(options = {}) {
       if (!options.skipTouch) touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      rememberLocalData();
       if (!options.localOnly) scheduleBackendSave();
     }
 
@@ -705,6 +847,16 @@
 
     function hasCustomParticipants(data) {
       return participantsSignature(data) !== JSON.stringify(["Ana", "Bruno", "Carla", "Diego", "Eva"]);
+    }
+
+    function hasMeaningfulBolaoData(data) {
+      if (!data) return false;
+      if (hasCustomParticipants(data)) return true;
+      if ((data.adminPassword || DEFAULT_PASSWORD) !== DEFAULT_PASSWORD) return true;
+      if (Object.keys(data.predictions || {}).some(user => Object.keys(data.predictions[user] || {}).length)) return true;
+      if (Object.keys(data.participantPasswords || {}).length) return true;
+      if ((data.games || []).some(game => game.result || game.status !== "pending" || game.advancedTeam || game.wentOvertime)) return true;
+      return JSON.stringify(mergeRules(data.rules)) !== JSON.stringify(defaultRules());
     }
 
     async function initBackend() {
@@ -723,7 +875,7 @@
       state.backend.error = "";
       renderBackendOnly();
       await pullBackendData({ pushIfMissing: true });
-      state.backend.pollTimer = setInterval(() => pullBackendData(), 30000);
+      state.backend.pollTimer = setInterval(() => pullBackendData(), BACKEND_POLL_MS);
     }
 
     function scheduleBackendSave() {
@@ -734,18 +886,24 @@
       state.backend.saveTimer = setTimeout(() => pushBackendData(), 800);
     }
 
+    async function fetchBackendRow() {
+      const cfg = state.backend.config;
+      const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
+      const response = await fetch(url, {
+        headers: backendHeaders({ Accept: "application/json" }),
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error(`Supabase ${response.status}`);
+      const rows = await response.json();
+      return rows[0] || null;
+    }
+
     async function pullBackendData(options = {}) {
-      if (!backendIsConfigured()) return;
+      if (!backendIsConfigured() || state.backend.syncInFlight || state.backend.saveTimer) return;
       try {
-        const cfg = state.backend.config;
-        const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
-        const response = await fetch(url, {
-          headers: backendHeaders({ Accept: "application/json" }),
-          cache: "no-store"
-        });
-        if (!response.ok) throw new Error(`Supabase ${response.status}`);
-        const rows = await response.json();
-        const remoteData = rows[0]?.data;
+        const row = await fetchBackendRow();
+        const remoteSchedule = normalizeScheduleData(row?.data);
+        const remoteData = row?.data ? remoteSchedule.data : null;
 
         if (!remoteData) {
           if (options.pushIfMissing) await pushBackendData();
@@ -757,26 +915,35 @@
           return;
         }
 
-        if (dataTimestamp(remoteData) > dataTimestamp(state.data)) {
-          if (hasCustomParticipants(state.data) && participantsSignature(remoteData) !== participantsSignature(state.data)) {
-            state.backend.status = "conflict";
-            state.backend.error = "Os participantes deste navegador diferem do banco. Revise no Admin antes de sincronizar.";
-            renderBackendOnly();
-            return;
-          }
+        if (remoteSchedule.changed) {
           state.data = remoteData;
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          rememberLocalData();
+          rememberRemoteData(remoteData, row.updated_at);
+          saveData({ skipTouch: true });
+          render();
+          return;
+        }
+
+        const hasLocalBolaoChanges = state.backend.hasLocalData && hasMeaningfulBolaoData(state.data);
+        const shouldAdoptRemote = !hasLocalBolaoChanges || dataTimestamp(remoteData) > dataTimestamp(state.data);
+        if (shouldAdoptRemote) {
+          state.data = remoteData;
+          localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          rememberLocalData();
+          rememberRemoteData(remoteData, row.updated_at);
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
           render();
           return;
         }
 
-        if (options.pushIfMissing && dataTimestamp(state.data) > dataTimestamp(remoteData)) {
+        if (options.pushIfMissing && hasLocalBolaoChanges && dataTimestamp(state.data) > dataTimestamp(remoteData)) {
           await pushBackendData();
           return;
         }
 
+        rememberRemoteData(remoteData, row.updated_at);
         state.backend.status = "online";
         state.backend.lastSync = new Date().toISOString();
         renderBackendOnly();
@@ -788,26 +955,73 @@
       }
     }
 
-    async function pushBackendData() {
+    async function writeBackendData(row, dataToSave) {
+      const cfg = state.backend.config;
+      const preferHeaders = backendHeaders({ Prefer: "return=representation" });
+      const body = JSON.stringify({ id: cfg.rowId, data: dataToSave });
+      const response = row?.updated_at
+        ? await fetch(`${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&updated_at=eq.${encodeURIComponent(row.updated_at)}`, {
+            method: "PATCH",
+            headers: preferHeaders,
+            body: JSON.stringify({ data: dataToSave }),
+            cache: "no-store"
+          })
+        : await fetch(backendBaseUrl(), {
+            method: "POST",
+            headers: preferHeaders,
+            body,
+            cache: "no-store"
+          });
+
+      if (response.status === 409) return null;
+      if (!response.ok) throw new Error(`Supabase ${response.status}`);
+      const rows = await response.json();
+      return rows[0] || null;
+    }
+
+    async function pushBackendData(options = {}) {
       if (!backendIsConfigured()) return;
+      if (state.backend.syncInFlight) {
+        state.backend.saveQueued = true;
+        return;
+      }
+
+      clearTimeout(state.backend.saveTimer);
+      state.backend.saveTimer = null;
+      state.backend.syncInFlight = true;
+
       try {
-        const cfg = state.backend.config;
-        const response = await fetch(`${backendBaseUrl()}?on_conflict=id`, {
-          method: "POST",
-          headers: backendHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
-          body: JSON.stringify({ id: cfg.rowId, data: state.data }),
-          cache: "no-store"
-        });
-        if (!response.ok) throw new Error(`Supabase ${response.status}`);
+        let savedRow = null;
+        for (let attempt = 0; attempt < 4 && !savedRow; attempt++) {
+          const row = await fetchBackendRow();
+          const remoteSchedule = normalizeScheduleData(row?.data);
+          const remoteData = row?.data ? remoteSchedule.data : null;
+          const dataToSave = remoteData ? mergeDataForBackend(remoteData, state.data, options) : mergeDataForBackend(null, state.data, { forceLocal: true });
+          savedRow = await writeBackendData(row, dataToSave);
+          if (!savedRow) continue;
+
+          state.data = savedRow.data || dataToSave;
+          localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          rememberLocalData();
+          rememberRemoteData(state.data, savedRow.updated_at);
+        }
+
+        if (!savedRow) throw new Error("Supabase concorrente: tente novamente");
         state.backend.status = "online";
         state.backend.error = "";
         state.backend.lastSync = new Date().toISOString();
-        renderBackendOnly();
+        render();
       } catch (error) {
         state.backend.status = "offline";
         state.backend.error = error.message || "erro ao salvar";
         if (state.session) toast("Salvo localmente, mas backend falhou");
         renderBackendOnly();
+      } finally {
+        state.backend.syncInFlight = false;
+        if (state.backend.saveQueued) {
+          state.backend.saveQueued = false;
+          scheduleBackendSave();
+        }
       }
     }
 
@@ -931,7 +1145,13 @@
     function isLocked(game) { return Date.now() >= gameDeadline(game); }
     function getPred(user, gameId) { return state.data.predictions[user]?.[gameId] || null; }
     function dateLabel(iso) {
-      return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+      return new Date(iso).toLocaleString("pt-BR", {
+        timeZone: APP_TIME_ZONE,
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
     }
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -946,6 +1166,7 @@
       "australia": "🇦🇺",
       "austria": "🇦🇹",
       "belgica": "🇧🇪",
+      "bosnia": "🇧🇦",
       "brasil": "🇧🇷",
       "cabo verde": "🇨🇻",
       "canada": "🇨🇦",
@@ -967,6 +1188,7 @@
       "holanda": "🇳🇱",
       "inglaterra": "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}",
       "ira": "🇮🇷",
+      "iraque": "🇮🇶",
       "italia": "🇮🇹",
       "japao": "🇯🇵",
       "jordania": "🇯🇴",
@@ -977,8 +1199,10 @@
       "panama": "🇵🇦",
       "paraguai": "🇵🇾",
       "portugal": "🇵🇹",
+      "rd congo": "🇨🇩",
       "republica tcheca": "🇨🇿",
       "senegal": "🇸🇳",
+      "suecia": "🇸🇪",
       "suica": "🇨🇭",
       "tunisia": "🇹🇳",
       "turquia": "🇹🇷",
@@ -1189,7 +1413,7 @@
     }
 
     function scorePrediction(game, pred) {
-      if (!game.result || !pred) return { points: 0, exact: 0, correct: 0 };
+      if (!game.result || !pred) return { points: 0, exact: 0, correct: 0, reason: pred ? "Aguardando resultado" : "Sem palpite" };
       const real = game.result;
       const realSign = sign(real.home - real.away);
       const predSign = sign(pred.home - pred.away);
@@ -1198,23 +1422,46 @@
       const score = scoringRules();
       let points = 0;
       let correct = 0;
+      let reason = "Nao pontuou";
 
       if (game.type === "group") {
-        if (exact) points = Number(score.groupExact) || 0;
-        else if (realSign === predSign && totalOk) points = Number(score.groupResultTotal) || 0;
-        else if (realSign === predSign) points = Number(score.groupResult) || 0;
+        if (exact) {
+          points = Number(score.groupExact) || 0;
+          reason = "Placar exato";
+        } else if (realSign === predSign && totalOk) {
+          points = Number(score.groupResultTotal) || 0;
+          reason = "Resultado e total de gols";
+        } else if (realSign === predSign) {
+          points = Number(score.groupResult) || 0;
+          reason = "Resultado correto";
+        }
         if (realSign === predSign) correct = 1;
       } else {
         const advancedOk = pred.advancedTeam && game.advancedTeam && pred.advancedTeam === game.advancedTeam;
-        if (exact) points = Number(score.knockoutExact) || 0;
-        else if (realSign === predSign && totalOk) points = Number(score.knockoutResultTotal) || 0;
-        else if (realSign !== 0 && realSign === predSign) points = Number(score.knockoutResult) || 0;
-        else if (realSign === 0 && predSign === 0 && advancedOk) points = Number(score.knockoutDrawAdvanced) || 0;
-        else if (advancedOk) points = Number(score.knockoutAdvanced) || 0;
+        const overtimeBonus = pred.overtime === true && game.wentOvertime === true ? Number(score.overtimeBonus) || 0 : 0;
+        if (exact) {
+          points = Number(score.knockoutExact) || 0;
+          reason = "Placar exato";
+        } else if (realSign === predSign && totalOk) {
+          points = Number(score.knockoutResultTotal) || 0;
+          reason = "Resultado e total de gols";
+        } else if (realSign !== 0 && realSign === predSign) {
+          points = Number(score.knockoutResult) || 0;
+          reason = "Resultado nos 90 min";
+        } else if (realSign === 0 && predSign === 0 && advancedOk) {
+          points = Number(score.knockoutDrawAdvanced) || 0;
+          reason = "Empate e classificado";
+        } else if (advancedOk) {
+          points = Number(score.knockoutAdvanced) || 0;
+          reason = "Classificado correto";
+        }
         if (realSign === predSign || advancedOk) correct = 1;
-        if (pred.overtime === true && game.wentOvertime === true) points += Number(score.overtimeBonus) || 0;
+        if (overtimeBonus) {
+          points += overtimeBonus;
+          reason += " + bonus prorrogacao";
+        }
       }
-      return { points, exact: exact ? 1 : 0, correct };
+      return { points, exact: exact ? 1 : 0, correct, reason };
     }
 
     function scores() {
@@ -1444,6 +1691,53 @@
         </div>`;
     }
 
+    const GAME_ORDER_OPTIONS = [
+      ["dateAsc", "Data: primeiros jogos"],
+      ["dateDesc", "Data: ultimos jogos"],
+      ["deadline", "Prazo: fecham primeiro"],
+      ["pendingFirst", "Pendentes primeiro"],
+      ["madeFirst", "Com palpite primeiro"],
+      ["openFirst", "Abertos primeiro"],
+      ["resultFirst", "Com resultado primeiro"],
+      ["phase", "Fase / grupo"],
+      ["team", "Time A-Z"]
+    ];
+
+    function gameOrderWeight(game, user) {
+      const pred = getPred(user, game.id);
+      const locked = isLocked(game);
+      const done = !!game.result;
+      return {
+        date: new Date(game.datetime).getTime(),
+        deadline: gameDeadline(game),
+        pending: !pred && !locked ? 0 : 1,
+        made: pred ? 0 : 1,
+        open: !locked ? 0 : 1,
+        result: done ? 0 : 1,
+        phase: `${game.type === "group" ? "0" : "1"}-${game.phase}-${game.id}`,
+        team: `${teamText(game.homeTeam)} ${teamText(game.awayTeam)} ${game.id}`.toLowerCase()
+      };
+    }
+
+    function compareGamesByOrder(a, b) {
+      const user = state.session.name;
+      const aw = gameOrderWeight(a, user);
+      const bw = gameOrderWeight(b, user);
+      const fallback = aw.date - bw.date || a.id.localeCompare(b.id);
+      const orderMap = {
+        dateAsc: () => fallback,
+        dateDesc: () => bw.date - aw.date || a.id.localeCompare(b.id),
+        deadline: () => aw.deadline - bw.deadline || fallback,
+        pendingFirst: () => aw.pending - bw.pending || fallback,
+        madeFirst: () => aw.made - bw.made || fallback,
+        openFirst: () => aw.open - bw.open || fallback,
+        resultFirst: () => aw.result - bw.result || fallback,
+        phase: () => aw.phase.localeCompare(bw.phase) || fallback,
+        team: () => aw.team.localeCompare(bw.team) || fallback
+      };
+      return (orderMap[state.gameOrder] || orderMap.dateAsc)();
+    }
+
     function filteredGames() {
       const user = state.session.name;
       const q = state.query.trim().toLowerCase();
@@ -1458,16 +1752,21 @@
           (state.filter === "closed" && (locked || done));
         const byQuery = !q || `${g.homeTeam} ${g.awayTeam} ${g.id} ${g.phase}`.toLowerCase().includes(q);
         return byFilter && byQuery;
-      });
+      }).sort(compareGamesByOrder);
     }
 
     function renderGames() {
       const filters = [["all","Todos"],["pending","Pendentes"],["made","Com palpite"],["closed","Bloqueados"]];
       const games = filteredGames();
+      const orderOptions = GAME_ORDER_OPTIONS.map(([id,label]) => `<option value="${id}" ${state.gameOrder === id ? "selected" : ""}>${label}</option>`).join("");
       document.getElementById("games").innerHTML = `
         <div class="toolbar">
           <div class="filters">${filters.map(([id,label]) => `<button class="chip ${state.filter===id?"active":""}" onclick="setFilter('${id}')">${label}</button>`).join("")}</div>
-          <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
+          <div class="form-row">
+            <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
+            <select aria-label="Ordenar jogos" onchange="setGameOrder(this.value)">${orderOptions}</select>
+          </div>
+          <p class="mini">${games.length} jogo(s) exibido(s). Horarios em ${APP_TIME_ZONE_LABEL}. Use a busca, os filtros e a ordem para achar seus palpites.</p>
         </div>
         <div class="game-list">${games.length ? games.map(g => gameCard(g)).join("") : alertsHtml([alertItem("info", "Nenhum jogo encontrado", "Limpe a busca ou troque o filtro para ver mais jogos.")], "Aviso")}</div>`;
     }
@@ -1575,6 +1874,48 @@
       renderGames();
     }
 
+    function predictionLabel(game, pred) {
+      if (!pred) return "Sem palpite";
+      const advanced = game.type === "knockout" && pred.advancedTeam ? `, passa ${teamText(pred.advancedTeam)}` : "";
+      const overtime = game.type === "knockout" && pred.overtime ? ", prorrogacao" : "";
+      return `${pred.home} x ${pred.away}${advanced}${overtime}`;
+    }
+
+    function resultLabel(game) {
+      if (!game.result) return "Sem resultado";
+      const advanced = game.advancedTeam ? `, passou ${teamText(game.advancedTeam)}` : "";
+      const overtime = game.wentOvertime ? ", teve prorrogacao/penaltis" : "";
+      return `${game.result.home} x ${game.result.away}${advanced}${overtime}`;
+    }
+
+    function rankingBreakdownHtml() {
+      const finishedGames = state.data.games.filter(game => game.result).sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+      if (!finishedGames.length) {
+        return alertsHtml([alertItem("info", "Pontuacao ainda nao conferida", "Os detalhes dos pontos aparecem aqui depois que os resultados forem lancados.")], "Como os pontos foram contados");
+      }
+
+      return `
+        <div class="panel">
+          <h2>Como os pontos foram contabilizados</h2>
+          <p class="mini">Apenas jogos com resultado conferido aparecem aqui. Jogos sem resultado continuam escondidos para nao expor palpites antes da hora.</p>
+          <div class="grid">
+            ${finishedGames.map(game => {
+              const rows = state.data.participants.map(name => {
+                const pred = getPred(name, game.id);
+                const score = scorePrediction(game, pred);
+                return `<tr><td><b>${escapeHtml(name)}</b></td><td>${escapeHtml(predictionLabel(game, pred))}</td><td>${score.points}</td><td>${escapeHtml(score.reason)}</td></tr>`;
+              }).join("");
+              return `
+                <div class="panel" style="box-shadow:none">
+                  <h3>${game.id} · ${escapeHtml(game.phase)} · ${teamLabel(game.homeTeam)} x ${teamLabel(game.awayTeam)}</h3>
+                  <p class="mini">Resultado conferido: ${escapeHtml(resultLabel(game))}</p>
+                  <div class="table-wrap"><table><thead><tr><th>Participante</th><th>Palpite</th><th>Pontos</th><th>Motivo</th></tr></thead><tbody>${rows}</tbody></table></div>
+                </div>`;
+            }).join("")}
+          </div>
+        </div>`;
+    }
+
     function renderRanking() {
       const rows = scores();
       document.getElementById("ranking").innerHTML = `
@@ -1588,7 +1929,8 @@
           </div>
           <div style="height:12px"></div>
           <button class="primary" onclick="shareRanking()">Copiar ranking para WhatsApp</button>
-        </div>`;
+        </div>
+        ${rankingBreakdownHtml()}`;
     }
 
     function renderPerformance() {
@@ -1620,7 +1962,7 @@
       const statusMap = {
         syncing: "Sincronizando...",
         saving: "Salvando no banco...",
-        online: "Online e sincronizado.",
+        online: "Online e atualizando automaticamente para todos.",
         conflict: `Conflito: ${state.backend.error || "dados locais diferem do banco"}`,
         offline: `Offline: ${state.backend.error || "sem conexao com o banco"}`,
         local: "Modo local."
@@ -1894,6 +2236,11 @@
       initBackend();
     }
 
+    function syncWhenVisible() {
+      if (document.visibilityState === "hidden" || !backendIsConfigured()) return;
+      pullBackendData();
+    }
+
     function syncNow() {
       if (!backendIsConfigured()) return toast("Configure o backend primeiro");
       pullBackendData({ pushIfMissing: true });
@@ -1914,7 +2261,8 @@
       if (!ok) return;
       touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
-      pushBackendData();
+      rememberLocalData();
+      pushBackendData({ forceLocal: true });
       toast("Enviando para o banco");
     }
 
@@ -2094,6 +2442,7 @@
       input.value = Math.max(0, Number(input.value || 0) + diff);
     }
     function setFilter(id) { state.filter = id; renderGames(); }
+    function setGameOrder(value) { state.gameOrder = value; renderGames(); }
     function setQuery(value) { state.query = value; renderGames(); }
     function go(id) { state.view = id; render(); }
     function goAdminGame(id) { state.view = "admin"; render(); document.getElementById("adminGame").value = id; fillAdminGame(); }
@@ -2130,6 +2479,9 @@
       toast("App instalado");
       if (state.view === "login") renderLogin();
     });
+
+    window.addEventListener("focus", syncWhenVisible);
+    document.addEventListener("visibilitychange", syncWhenVisible);
 
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       let refreshing = false;
