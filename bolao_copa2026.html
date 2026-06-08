@@ -482,11 +482,13 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.08.16";
+    const APP_VERSION = "2026.06.08.17";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
     const BACKEND_POLL_MS = 3000;
+    const APP_TIME_ZONE = "America/Sao_Paulo";
+    const APP_TIME_ZONE_LABEL = "horario de Brasilia";
     const TZ_OFFSET = "-03:00";
     const DEFAULT_BACKEND_CONFIG = {
       provider: "supabase",
@@ -1091,7 +1093,13 @@
     function isLocked(game) { return Date.now() >= gameDeadline(game); }
     function getPred(user, gameId) { return state.data.predictions[user]?.[gameId] || null; }
     function dateLabel(iso) {
-      return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+      return new Date(iso).toLocaleString("pt-BR", {
+        timeZone: APP_TIME_ZONE,
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
     }
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -1679,7 +1687,7 @@
             <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
             <select aria-label="Ordenar jogos" onchange="setGameOrder(this.value)">${orderOptions}</select>
           </div>
-          <p class="mini">${games.length} jogo(s) exibido(s). Use a busca, os filtros e a ordem para achar seus palpites.</p>
+          <p class="mini">${games.length} jogo(s) exibido(s). Horarios em ${APP_TIME_ZONE_LABEL}. Use a busca, os filtros e a ordem para achar seus palpites.</p>
         </div>
         <div class="game-list">${games.length ? games.map(g => gameCard(g)).join("") : alertsHtml([alertItem("info", "Nenhum jogo encontrado", "Limpe a busca ou troque o filtro para ver mais jogos.")], "Aviso")}</div>`;
     }
