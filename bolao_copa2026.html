@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.12";
+    const APP_VERSION = "2026.06.08.13";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -531,6 +531,7 @@
         status: "local",
         error: "",
         lastSync: "",
+        hasLocalData: hasStoredData(),
         saveTimer: null,
         pollTimer: null
       },
@@ -543,6 +544,14 @@
       }
     };
     let deferredInstallPrompt = null;
+
+    function hasStoredData() {
+      return !!localStorage.getItem(STORE_KEY);
+    }
+
+    function rememberLocalData() {
+      if (state.backend) state.backend.hasLocalData = true;
+    }
 
     function getBackendConfig() {
       let localConfig = {};
@@ -690,6 +699,7 @@
     function saveData(options = {}) {
       if (!options.skipTouch) touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      rememberLocalData();
       if (!options.localOnly) scheduleBackendSave();
     }
 
@@ -705,6 +715,16 @@
 
     function hasCustomParticipants(data) {
       return participantsSignature(data) !== JSON.stringify(["Ana", "Bruno", "Carla", "Diego", "Eva"]);
+    }
+
+    function hasMeaningfulBolaoData(data) {
+      if (!data) return false;
+      if (hasCustomParticipants(data)) return true;
+      if ((data.adminPassword || DEFAULT_PASSWORD) !== DEFAULT_PASSWORD) return true;
+      if (Object.keys(data.predictions || {}).some(user => Object.keys(data.predictions[user] || {}).length)) return true;
+      if (Object.keys(data.participantPasswords || {}).length) return true;
+      if ((data.games || []).some(game => game.result || game.status !== "pending" || game.advancedTeam || game.wentOvertime)) return true;
+      return JSON.stringify(mergeRules(data.rules)) !== JSON.stringify(defaultRules());
     }
 
     async function initBackend() {
@@ -757,8 +777,10 @@
           return;
         }
 
-        if (dataTimestamp(remoteData) > dataTimestamp(state.data)) {
-          if (hasCustomParticipants(state.data) && participantsSignature(remoteData) !== participantsSignature(state.data)) {
+        const hasLocalBolaoChanges = state.backend.hasLocalData && hasMeaningfulBolaoData(state.data);
+        const shouldAdoptRemote = !hasLocalBolaoChanges || dataTimestamp(remoteData) > dataTimestamp(state.data);
+        if (shouldAdoptRemote) {
+          if (hasLocalBolaoChanges && hasCustomParticipants(state.data) && participantsSignature(remoteData) !== participantsSignature(state.data)) {
             state.backend.status = "conflict";
             state.backend.error = "Os participantes deste navegador diferem do banco. Revise no Admin antes de sincronizar.";
             renderBackendOnly();
@@ -766,13 +788,14 @@
           }
           state.data = remoteData;
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          rememberLocalData();
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
           render();
           return;
         }
 
-        if (options.pushIfMissing && dataTimestamp(state.data) > dataTimestamp(remoteData)) {
+        if (options.pushIfMissing && hasLocalBolaoChanges && dataTimestamp(state.data) > dataTimestamp(remoteData)) {
           await pushBackendData();
           return;
         }
@@ -799,6 +822,7 @@
           cache: "no-store"
         });
         if (!response.ok) throw new Error(`Supabase ${response.status}`);
+        rememberLocalData();
         state.backend.status = "online";
         state.backend.error = "";
         state.backend.lastSync = new Date().toISOString();
@@ -1894,6 +1918,11 @@
       initBackend();
     }
 
+    function syncWhenVisible() {
+      if (document.visibilityState === "hidden" || !backendIsConfigured()) return;
+      pullBackendData();
+    }
+
     function syncNow() {
       if (!backendIsConfigured()) return toast("Configure o backend primeiro");
       pullBackendData({ pushIfMissing: true });
@@ -1914,6 +1943,7 @@
       if (!ok) return;
       touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      rememberLocalData();
       pushBackendData();
       toast("Enviando para o banco");
     }
@@ -2130,6 +2160,9 @@
       toast("App instalado");
       if (state.view === "login") renderLogin();
     });
+
+    window.addEventListener("focus", syncWhenVisible);
+    document.addEventListener("visibilitychange", syncWhenVisible);
 
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       let refreshing = false;
