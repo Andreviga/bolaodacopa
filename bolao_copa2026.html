@@ -482,8 +482,9 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.10.5";
+    const APP_VERSION = "2026.06.10.6";
     const STORE_KEY = "bolaoCopa2026.v1";
+    const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
     const TZ_OFFSET = "-03:00";
@@ -655,6 +656,7 @@
         adminPassword: DEFAULT_PASSWORD,
         games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
         predictions: {},
+        predictionArchive: {},
         predictionResets: {},
         participantPasswords: {},
         participantPasswordResets: {},
@@ -698,12 +700,47 @@
       return Number.isFinite(time) ? time : 0;
     }
 
+    function predictionIsActive(data, name, pred) {
+      return !!pred && predictionResetTime(data, name) <= predictionSubmittedTime(pred);
+    }
+
+    function archivePrediction(data, name, gameId, pred) {
+      if (!predictionIsActive(data, name, pred)) return;
+      data.predictionArchive ||= {};
+      data.predictionArchive[name] ||= {};
+      const archived = data.predictionArchive[name][gameId];
+      if (!archived || predictionSubmittedTime(pred) >= predictionSubmittedTime(archived)) {
+        data.predictionArchive[name][gameId] = { ...pred };
+      }
+    }
+
+    function rememberPrediction(data, name, gameId, pred) {
+      data.predictions ||= {};
+      data.predictions[name] ||= {};
+      data.predictions[name][gameId] = { ...pred };
+      archivePrediction(data, name, gameId, pred);
+    }
+
     function cleanPredictionState(data) {
       data.predictions ||= {};
+      data.predictionArchive ||= {};
       data.predictionResets ||= {};
       Object.entries(data.predictions).forEach(([name, entries]) => {
+        Object.entries(entries || {}).forEach(([gameId, pred]) => archivePrediction(data, name, gameId, pred));
+      });
+      Object.entries(data.predictionArchive).forEach(([name, entries]) => {
         Object.entries(entries || {}).forEach(([gameId, pred]) => {
-          if (!pred || predictionResetTime(data, name) > predictionSubmittedTime(pred)) {
+          if (!predictionIsActive(data, name, pred)) return;
+          data.predictions[name] ||= {};
+          const current = data.predictions[name][gameId];
+          if (!current || predictionSubmittedTime(pred) > predictionSubmittedTime(current)) {
+            data.predictions[name][gameId] = { ...pred };
+          }
+        });
+      });
+      Object.entries(data.predictions).forEach(([name, entries]) => {
+        Object.entries(entries || {}).forEach(([gameId, pred]) => {
+          if (!predictionIsActive(data, name, pred)) {
             delete data.predictions[name][gameId];
           }
         });
@@ -721,6 +758,7 @@
         meta: { ...base.meta, ...(parsed.meta || {}) },
         games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
         predictions: parsed.predictions || {},
+        predictionArchive: parsed.predictionArchive || {},
         predictionResets: parsed.predictionResets || {},
         participantPasswords: parsed.participantPasswords || {},
         participantPasswordResets: parsed.participantPasswordResets || {},
@@ -731,6 +769,7 @@
     function protectedStateSignature(data) {
       return JSON.stringify({
         predictions: data?.predictions || {},
+        predictionArchive: data?.predictionArchive || {},
         predictionResets: data?.predictionResets || {},
         participantPasswords: data?.participantPasswords || {},
         participantPasswordResets: data?.participantPasswordResets || {}
@@ -770,13 +809,66 @@
       return cleanPredictionState(cleanPasswordState(local));
     }
 
+    function loadLocalPredictionBackup() {
+      try {
+        return JSON.parse(localStorage.getItem(PREDICTION_BACKUP_KEY) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function mergePredictionArchive(target, source) {
+      target.predictionArchive ||= {};
+      Object.entries(source?.predictionArchive || {}).forEach(([name, entries]) => {
+        Object.entries(entries || {}).forEach(([gameId, pred]) => archivePrediction(target, name, gameId, pred));
+      });
+      Object.entries(source?.predictions || {}).forEach(([name, entries]) => {
+        Object.entries(entries || {}).forEach(([gameId, pred]) => archivePrediction(target, name, gameId, pred));
+      });
+      Object.entries(source?.predictionResets || {}).forEach(([name, resetAt]) => {
+        if (Date.parse(resetAt) > predictionResetTime(target, name)) {
+          target.predictionResets ||= {};
+          target.predictionResets[name] = resetAt;
+        }
+      });
+      return cleanPredictionState(target);
+    }
+
+    function applyLocalPredictionBackup(data) {
+      const backup = loadLocalPredictionBackup();
+      if (!backup.predictionArchive && !backup.predictions) return data;
+      return mergePredictionArchive(data, backup);
+    }
+
+    function saveLocalPredictionBackup(data) {
+      try {
+        const backup = applyLocalPredictionBackup({
+          predictions: {},
+          predictionArchive: {},
+          predictionResets: {}
+        });
+        mergePredictionArchive(backup, data);
+        backup.updatedAt = new Date().toISOString();
+        localStorage.setItem(PREDICTION_BACKUP_KEY, JSON.stringify({
+          predictionArchive: backup.predictionArchive || {},
+          predictionResets: backup.predictionResets || {},
+          updatedAt: backup.updatedAt
+        }));
+      } catch {}
+    }
+
+    function persistStateData() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      saveLocalPredictionBackup(state.data);
+    }
+
     function loadData() {
       const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return defaultData();
+      if (!raw) return applyLocalPredictionBackup(defaultData());
       try {
-        return normalizeStoredData(JSON.parse(raw));
+        return applyLocalPredictionBackup(normalizeStoredData(JSON.parse(raw)));
       } catch {
-        return defaultData();
+        return applyLocalPredictionBackup(defaultData());
       }
     }
 
@@ -788,7 +880,7 @@
 
     function saveData(options = {}) {
       if (!options.skipTouch) touchData();
-      localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      persistStateData();
       if (!options.localOnly) scheduleBackendSave(options);
     }
 
@@ -875,7 +967,7 @@
           const remoteCustom = hasCustomParticipants(normalizedRemote);
           if (!localCustom && remoteCustom) {
             state.data = mergeSharedProtection(normalizedRemote, state.data);
-            localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+            persistStateData();
             state.backend.status = "online";
             state.backend.lastSync = new Date().toISOString();
             render();
@@ -885,7 +977,7 @@
             if (state.session?.role !== "admin") {
               const remoteProtectedBefore = protectedStateSignature(normalizedRemote);
               state.data = mergeSharedProtection(normalizedRemote, state.data);
-              localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+              persistStateData();
               state.backend.status = "online";
               state.backend.lastSync = new Date().toISOString();
               render();
@@ -904,7 +996,7 @@
           const mergedData = mergeSharedProtection(normalizedRemote, state.data);
           const shouldPushProtected = protectedStateSignature(mergedData) !== remoteProtectedBefore;
           state.data = mergedData;
-          localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          persistStateData();
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
           render();
@@ -916,7 +1008,7 @@
         const protectedData = mergeSharedProtection(state.data, normalizedRemote);
         if (protectedStateSignature(protectedData) !== beforeProtected) {
           state.data = protectedData;
-          localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          persistStateData();
           if (state.view === "login") renderLogin();
         }
 
@@ -947,7 +1039,7 @@
           const remoteCustom = hasCustomParticipants(normalizedRemote);
           if (!localCustom && remoteCustom) {
             state.data = mergeSharedProtection(normalizedRemote, state.data);
-            localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+            persistStateData();
             state.backend.status = "online";
             state.backend.error = "Protegido: dados padrao deste navegador nao sobrescreveram participantes do banco.";
             state.backend.lastSync = new Date().toISOString();
@@ -957,7 +1049,7 @@
           if (localCustom && remoteCustom) {
             if (options.preserveRemoteParticipants || state.session?.role !== "admin") {
               state.data = mergeSharedProtection(normalizedRemote, state.data);
-              localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+              persistStateData();
             } else if (!options.allowParticipantOverwrite) {
               state.backend.status = "conflict";
               state.backend.error = "Os participantes deste navegador diferem do banco. Envio bloqueado para nao sobrescrever dados.";
@@ -967,7 +1059,7 @@
           }
         }
         state.data = mergeSharedProtection(state.data, normalizedRemote);
-        localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+        persistStateData();
         const response = await fetch(`${backendBaseUrl()}?on_conflict=id`, {
           method: "POST",
           headers: backendHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
@@ -1560,7 +1652,7 @@
           return false;
         }
         state.data = mergeSharedProtection(state.data, remoteData);
-        localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+        persistStateData();
         state.backend.status = "online";
         state.backend.error = "";
         state.backend.lastSync = new Date().toISOString();
@@ -1783,7 +1875,7 @@
         if (home === away && !pred.overtime) return toast("Se o mata-mata empatar nos 90 min, marque prorrogacao: Sim");
         if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min terminarem empatados");
       }
-      state.data.predictions[user][gameId] = pred;
+      rememberPrediction(state.data, user, gameId, pred);
       saveData({ preserveRemoteParticipants: true });
       toast("Palpite confirmado");
       renderGames();
@@ -2130,7 +2222,7 @@
       const ok = confirm(`Enviar os dados deste navegador para o banco?\n\nParticipantes atuais: ${names}\n\nIsso atualiza o bolao para todos.`);
       if (!ok) return;
       touchData();
-      localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+      persistStateData();
       pushBackendData({ allowParticipantOverwrite: true });
       toast("Enviando para o banco");
     }
