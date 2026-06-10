@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.03.12";
+    const APP_VERSION = "2026.06.10.1";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -656,26 +656,79 @@
         games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
         predictions: {},
         participantPasswords: {},
+        participantPasswordResets: {},
         rules: defaultRules(),
         settings: { theme: "dark" }
       };
+    }
+
+    function passwordCreatedTime(entry) {
+      const value = entry?.createdAt || entry?.updatedAt || "";
+      const time = Date.parse(value);
+      return Number.isFinite(time) ? time : (entry?.hash ? 1 : 0);
+    }
+
+    function passwordResetTime(data, name) {
+      const value = data?.participantPasswordResets?.[name] || "";
+      const time = Date.parse(value);
+      return Number.isFinite(time) ? time : 0;
+    }
+
+    function cleanPasswordState(data) {
+      data.participantPasswords ||= {};
+      data.participantPasswordResets ||= {};
+      Object.entries(data.participantPasswords).forEach(([name, entry]) => {
+        if (!entry?.hash || passwordResetTime(data, name) > passwordCreatedTime(entry)) {
+          delete data.participantPasswords[name];
+        }
+      });
+      return data;
+    }
+
+    function normalizeStoredData(savedData = {}) {
+      const parsed = savedData || {};
+      const base = defaultData();
+      return cleanPasswordState({
+        ...base,
+        ...parsed,
+        meta: { ...base.meta, ...(parsed.meta || {}) },
+        games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
+        predictions: parsed.predictions || {},
+        participantPasswords: parsed.participantPasswords || {},
+        participantPasswordResets: parsed.participantPasswordResets || {},
+        rules: mergeRules(parsed.rules)
+      });
+    }
+
+    function passwordStateSignature(data) {
+      return JSON.stringify({
+        participantPasswords: data?.participantPasswords || {},
+        participantPasswordResets: data?.participantPasswordResets || {}
+      });
+    }
+
+    function mergePasswordProtection(localData, remoteData) {
+      const local = normalizeStoredData(localData);
+      if (!remoteData) return local;
+      const remote = normalizeStoredData(remoteData);
+      Object.entries(remote.participantPasswordResets || {}).forEach(([name, resetAt]) => {
+        if (passwordResetTime(remote, name) > passwordResetTime(local, name)) {
+          local.participantPasswordResets[name] = resetAt;
+        }
+      });
+      Object.entries(remote.participantPasswords || {}).forEach(([name, remoteEntry]) => {
+        if (!remoteEntry?.hash) return;
+        if (passwordResetTime(local, name) > passwordCreatedTime(remoteEntry)) return;
+        local.participantPasswords[name] = remoteEntry;
+      });
+      return cleanPasswordState(local);
     }
 
     function loadData() {
       const raw = localStorage.getItem(STORE_KEY);
       if (!raw) return defaultData();
       try {
-        const parsed = JSON.parse(raw);
-        const base = defaultData();
-        return {
-          ...base,
-          ...parsed,
-          meta: { ...base.meta, ...(parsed.meta || {}) },
-          games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
-          predictions: parsed.predictions || {},
-          participantPasswords: parsed.participantPasswords || {},
-          rules: mergeRules(parsed.rules)
-        };
+        return normalizeStoredData(JSON.parse(raw));
       } catch {
         return defaultData();
       }
@@ -734,18 +787,22 @@
       state.backend.saveTimer = setTimeout(() => pushBackendData(), 800);
     }
 
+    async function fetchBackendData() {
+      const cfg = state.backend.config;
+      const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
+      const response = await fetch(url, {
+        headers: backendHeaders({ Accept: "application/json" }),
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error(`Supabase ${response.status}`);
+      const rows = await response.json();
+      return rows[0]?.data || null;
+    }
+
     async function pullBackendData(options = {}) {
       if (!backendIsConfigured()) return;
       try {
-        const cfg = state.backend.config;
-        const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
-        const response = await fetch(url, {
-          headers: backendHeaders({ Accept: "application/json" }),
-          cache: "no-store"
-        });
-        if (!response.ok) throw new Error(`Supabase ${response.status}`);
-        const rows = await response.json();
-        const remoteData = rows[0]?.data;
+        const remoteData = await fetchBackendData();
 
         if (!remoteData) {
           if (options.pushIfMissing) await pushBackendData();
@@ -757,14 +814,16 @@
           return;
         }
 
-        if (dataTimestamp(remoteData) > dataTimestamp(state.data)) {
-          if (hasCustomParticipants(state.data) && participantsSignature(remoteData) !== participantsSignature(state.data)) {
+        const normalizedRemote = normalizeStoredData(remoteData);
+
+        if (dataTimestamp(normalizedRemote) > dataTimestamp(state.data)) {
+          if (hasCustomParticipants(state.data) && participantsSignature(normalizedRemote) !== participantsSignature(state.data)) {
             state.backend.status = "conflict";
             state.backend.error = "Os participantes deste navegador diferem do banco. Revise no Admin antes de sincronizar.";
             renderBackendOnly();
             return;
           }
-          state.data = remoteData;
+          state.data = normalizedRemote;
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
@@ -772,7 +831,15 @@
           return;
         }
 
-        if (options.pushIfMissing && dataTimestamp(state.data) > dataTimestamp(remoteData)) {
+        const beforePasswords = passwordStateSignature(state.data);
+        const protectedData = mergePasswordProtection(state.data, normalizedRemote);
+        if (passwordStateSignature(protectedData) !== beforePasswords) {
+          state.data = protectedData;
+          localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+          if (state.view === "login") renderLogin();
+        }
+
+        if (options.pushIfMissing && dataTimestamp(state.data) > dataTimestamp(normalizedRemote)) {
           await pushBackendData();
           return;
         }
@@ -792,6 +859,9 @@
       if (!backendIsConfigured()) return;
       try {
         const cfg = state.backend.config;
+        const remoteData = await fetchBackendData();
+        state.data = mergePasswordProtection(state.data, remoteData);
+        localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
         const response = await fetch(`${backendBaseUrl()}?on_conflict=id`, {
           method: "POST",
           headers: backendHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
@@ -1338,7 +1408,8 @@
     }
 
     function hasParticipantPassword(name) {
-      return !!state.data.participantPasswords?.[name]?.hash;
+      const entry = state.data.participantPasswords?.[name];
+      return !!entry?.hash && passwordResetTime(state.data, name) <= passwordCreatedTime(entry);
     }
 
     function participantPasswordFieldsHtml(name) {
@@ -1371,6 +1442,30 @@
       return `fallback-${Math.abs(hash)}`;
     }
 
+    async function refreshParticipantPasswordFromBackend(name) {
+      if (!backendIsConfigured()) return false;
+      try {
+        const before = passwordStateSignature(state.data);
+        const remoteData = await fetchBackendData();
+        if (!remoteData) {
+          state.backend.status = "online";
+          state.backend.error = "";
+          state.backend.lastSync = new Date().toISOString();
+          return false;
+        }
+        state.data = mergePasswordProtection(state.data, remoteData);
+        localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+        state.backend.status = "online";
+        state.backend.error = "";
+        state.backend.lastSync = new Date().toISOString();
+        return before !== passwordStateSignature(state.data);
+      } catch (error) {
+        state.backend.status = "offline";
+        state.backend.error = error.message || "erro ao verificar senha";
+        return false;
+      }
+    }
+
     function updateParticipantPreview() {
       const select = document.getElementById("participantSelect");
       const preview = document.getElementById("participantPreview");
@@ -1392,6 +1487,18 @@
       const select = document.getElementById("participantSelect");
       const name = select?.value;
       if (!name || !state.data.participants.includes(name)) return toast("Escolha um participante valido");
+      const hadPasswordBeforeSync = hasParticipantPassword(name);
+      const passwordStateChanged = await refreshParticipantPasswordFromBackend(name);
+      const hasPasswordAfterSync = hasParticipantPassword(name);
+      if (!hadPasswordBeforeSync && !hasPasswordAfterSync && backendIsConfigured() && state.backend.status === "offline") {
+        return toast("Nao consegui verificar o banco. Tente de novo antes de criar senha.");
+      }
+      if (passwordStateChanged && hadPasswordBeforeSync !== hasPasswordAfterSync) {
+        localStorage.setItem("bolaoLastParticipant", name);
+        renderLogin();
+        toast(hasPasswordAfterSync ? "Este participante ja tem senha. Digite a senha correta." : "Senha resetada pelo admin. Crie uma nova senha.");
+        return;
+      }
       const password = document.getElementById("participantPassword")?.value || "";
       if (password.length < 4) return toast("Senha precisa ter pelo menos 4 caracteres");
       state.data.participantPasswords ||= {};
@@ -1402,6 +1509,7 @@
         const confirmPassword = document.getElementById("participantPasswordConfirm")?.value || "";
         if (password !== confirmPassword) return toast("As senhas nao conferem");
         state.data.participantPasswords[name] = { hash: passwordHash, createdAt: new Date().toISOString() };
+        if (state.data.participantPasswordResets) delete state.data.participantPasswordResets[name];
         saveData();
         toast("Senha criada");
       }
@@ -1863,6 +1971,7 @@
       state.data.participants = state.data.participants.filter(p => p !== name);
       delete state.data.predictions[name];
       if (state.data.participantPasswords) delete state.data.participantPasswords[name];
+      if (state.data.participantPasswordResets) delete state.data.participantPasswordResets[name];
       saveData();
       render();
     }
@@ -1928,11 +2037,15 @@
       render();
     }
 
-    function resetParticipantPassword() {
+    async function resetParticipantPassword() {
       const user = document.getElementById("resetUser").value;
       if (!user) return toast("Escolha um participante");
+      await refreshParticipantPasswordFromBackend(user);
+      if (backendIsConfigured() && state.backend.status === "offline") return toast("Nao consegui confirmar no banco. Tente resetar de novo.");
       if (!hasParticipantPassword(user)) return toast("Este participante ainda nao tem senha");
       if (!confirm(`Resetar a senha de ${user}? No proximo acesso a pessoa criara uma nova senha.`)) return;
+      state.data.participantPasswordResets ||= {};
+      state.data.participantPasswordResets[user] = new Date().toISOString();
       delete state.data.participantPasswords[user];
       saveData();
       toast("Senha do participante resetada");
