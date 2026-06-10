@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.10.4";
+    const APP_VERSION = "2026.06.10.5";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -789,7 +789,7 @@
     function saveData(options = {}) {
       if (!options.skipTouch) touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
-      if (!options.localOnly) scheduleBackendSave();
+      if (!options.localOnly) scheduleBackendSave(options);
     }
 
     function dataTimestamp(data) {
@@ -829,12 +829,17 @@
       state.backend.pollTimer = setInterval(() => pullBackendData(), 30000);
     }
 
-    function scheduleBackendSave() {
+    function scheduleBackendSave(options = {}) {
       if (!state.backend || !backendIsConfigured()) return;
       clearTimeout(state.backend.saveTimer);
+      state.backend.saveOptions = { ...(state.backend.saveOptions || {}), ...options };
       state.backend.status = "saving";
       renderBackendOnly();
-      state.backend.saveTimer = setTimeout(() => pushBackendData(), 800);
+      state.backend.saveTimer = setTimeout(() => {
+        const saveOptions = state.backend.saveOptions || {};
+        state.backend.saveOptions = null;
+        pushBackendData(saveOptions);
+      }, 800);
     }
 
     async function fetchBackendData() {
@@ -877,6 +882,16 @@
             return;
           }
           if (localCustom && remoteCustom) {
+            if (state.session?.role !== "admin") {
+              const remoteProtectedBefore = protectedStateSignature(normalizedRemote);
+              state.data = mergeSharedProtection(normalizedRemote, state.data);
+              localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+              state.backend.status = "online";
+              state.backend.lastSync = new Date().toISOString();
+              render();
+              if (protectedStateSignature(state.data) !== remoteProtectedBefore) await pushBackendData({ preserveRemoteParticipants: true });
+              return;
+            }
             state.backend.status = "conflict";
             state.backend.error = "Os participantes deste navegador diferem do banco. Revise no Admin antes de sincronizar.";
             renderBackendOnly();
@@ -893,7 +908,7 @@
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
           render();
-          if (shouldPushProtected) await pushBackendData();
+          if (shouldPushProtected) await pushBackendData({ preserveRemoteParticipants: true });
           return;
         }
 
@@ -906,7 +921,7 @@
         }
 
         if (options.pushIfMissing && dataTimestamp(state.data) > dataTimestamp(normalizedRemote)) {
-          await pushBackendData();
+          await pushBackendData({ preserveRemoteParticipants: state.session?.role !== "admin" });
           return;
         }
 
@@ -921,7 +936,7 @@
       }
     }
 
-    async function pushBackendData() {
+    async function pushBackendData(options = {}) {
       if (!backendIsConfigured()) return;
       try {
         const cfg = state.backend.config;
@@ -940,10 +955,15 @@
             return;
           }
           if (localCustom && remoteCustom) {
-            state.backend.status = "conflict";
-            state.backend.error = "Os participantes deste navegador diferem do banco. Envio bloqueado para nao sobrescrever dados.";
-            renderBackendOnly();
-            return;
+            if (options.preserveRemoteParticipants || state.session?.role !== "admin") {
+              state.data = mergeSharedProtection(normalizedRemote, state.data);
+              localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+            } else if (!options.allowParticipantOverwrite) {
+              state.backend.status = "conflict";
+              state.backend.error = "Os participantes deste navegador diferem do banco. Envio bloqueado para nao sobrescrever dados.";
+              renderBackendOnly();
+              return;
+            }
           }
         }
         state.data = mergeSharedProtection(state.data, normalizedRemote);
@@ -1596,7 +1616,7 @@
         if (password !== confirmPassword) return toast("As senhas nao conferem");
         state.data.participantPasswords[name] = { hash: passwordHash, createdAt: new Date().toISOString() };
         if (state.data.participantPasswordResets) delete state.data.participantPasswordResets[name];
-        saveData();
+        saveData({ preserveRemoteParticipants: true });
         toast("Senha criada");
       }
       localStorage.setItem("bolaoLastParticipant", name);
@@ -1764,7 +1784,7 @@
         if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min terminarem empatados");
       }
       state.data.predictions[user][gameId] = pred;
-      saveData();
+      saveData({ preserveRemoteParticipants: true });
       toast("Palpite confirmado");
       renderGames();
     }
@@ -2111,7 +2131,7 @@
       if (!ok) return;
       touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
-      pushBackendData();
+      pushBackendData({ allowParticipantOverwrite: true });
       toast("Enviando para o banco");
     }
 
