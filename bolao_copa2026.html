@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.10.1";
+    const APP_VERSION = "2026.06.10.3";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -655,6 +655,7 @@
         adminPassword: DEFAULT_PASSWORD,
         games: GROUP_GAMES.map(g => makeGame(g)).concat(KNOCKOUTS.map(g => makeGame(g, true))),
         predictions: {},
+        predictionResets: {},
         participantPasswords: {},
         participantPasswordResets: {},
         rules: defaultRules(),
@@ -685,32 +686,77 @@
       return data;
     }
 
+    function predictionSubmittedTime(pred) {
+      const value = pred?.submittedAt || pred?.updatedAt || "";
+      const time = Date.parse(value);
+      return Number.isFinite(time) ? time : (pred ? 1 : 0);
+    }
+
+    function predictionResetTime(data, name) {
+      const value = data?.predictionResets?.[name] || "";
+      const time = Date.parse(value);
+      return Number.isFinite(time) ? time : 0;
+    }
+
+    function cleanPredictionState(data) {
+      data.predictions ||= {};
+      data.predictionResets ||= {};
+      Object.entries(data.predictions).forEach(([name, entries]) => {
+        Object.entries(entries || {}).forEach(([gameId, pred]) => {
+          if (!pred || predictionResetTime(data, name) > predictionSubmittedTime(pred)) {
+            delete data.predictions[name][gameId];
+          }
+        });
+        if (!Object.keys(data.predictions[name] || {}).length) delete data.predictions[name];
+      });
+      return data;
+    }
+
     function normalizeStoredData(savedData = {}) {
       const parsed = savedData || {};
       const base = defaultData();
-      return cleanPasswordState({
+      return cleanPredictionState(cleanPasswordState({
         ...base,
         ...parsed,
         meta: { ...base.meta, ...(parsed.meta || {}) },
         games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
         predictions: parsed.predictions || {},
+        predictionResets: parsed.predictionResets || {},
         participantPasswords: parsed.participantPasswords || {},
         participantPasswordResets: parsed.participantPasswordResets || {},
         rules: mergeRules(parsed.rules)
-      });
+      }));
     }
 
-    function passwordStateSignature(data) {
+    function protectedStateSignature(data) {
       return JSON.stringify({
+        predictions: data?.predictions || {},
+        predictionResets: data?.predictionResets || {},
         participantPasswords: data?.participantPasswords || {},
         participantPasswordResets: data?.participantPasswordResets || {}
       });
     }
 
-    function mergePasswordProtection(localData, remoteData) {
+    function mergeSharedProtection(localData, remoteData) {
       const local = normalizeStoredData(localData);
       if (!remoteData) return local;
       const remote = normalizeStoredData(remoteData);
+      Object.entries(remote.predictionResets || {}).forEach(([name, resetAt]) => {
+        if (predictionResetTime(remote, name) > predictionResetTime(local, name)) {
+          local.predictionResets[name] = resetAt;
+        }
+      });
+      Object.entries(remote.predictions || {}).forEach(([name, entries]) => {
+        Object.entries(entries || {}).forEach(([gameId, remotePred]) => {
+          if (!remotePred) return;
+          if (predictionResetTime(local, name) > predictionSubmittedTime(remotePred)) return;
+          local.predictions[name] ||= {};
+          const localPred = local.predictions[name][gameId];
+          if (!localPred || predictionSubmittedTime(remotePred) > predictionSubmittedTime(localPred)) {
+            local.predictions[name][gameId] = remotePred;
+          }
+        });
+      });
       Object.entries(remote.participantPasswordResets || {}).forEach(([name, resetAt]) => {
         if (passwordResetTime(remote, name) > passwordResetTime(local, name)) {
           local.participantPasswordResets[name] = resetAt;
@@ -721,7 +767,7 @@
         if (passwordResetTime(local, name) > passwordCreatedTime(remoteEntry)) return;
         local.participantPasswords[name] = remoteEntry;
       });
-      return cleanPasswordState(local);
+      return cleanPredictionState(cleanPasswordState(local));
     }
 
     function loadData() {
@@ -758,6 +804,10 @@
 
     function hasCustomParticipants(data) {
       return participantsSignature(data) !== JSON.stringify(["Ana", "Bruno", "Carla", "Diego", "Eva"]);
+    }
+
+    function participantsDiffer(a, b) {
+      return participantsSignature(a) !== participantsSignature(b);
     }
 
     async function initBackend() {
@@ -815,15 +865,27 @@
         }
 
         const normalizedRemote = normalizeStoredData(remoteData);
-
-        if (dataTimestamp(normalizedRemote) > dataTimestamp(state.data)) {
-          if (hasCustomParticipants(state.data) && participantsSignature(normalizedRemote) !== participantsSignature(state.data)) {
+        if (participantsDiffer(state.data, normalizedRemote)) {
+          const localCustom = hasCustomParticipants(state.data);
+          const remoteCustom = hasCustomParticipants(normalizedRemote);
+          if (!localCustom && remoteCustom) {
+            state.data = mergeSharedProtection(normalizedRemote, state.data);
+            localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+            state.backend.status = "online";
+            state.backend.lastSync = new Date().toISOString();
+            render();
+            return;
+          }
+          if (localCustom && remoteCustom) {
             state.backend.status = "conflict";
             state.backend.error = "Os participantes deste navegador diferem do banco. Revise no Admin antes de sincronizar.";
             renderBackendOnly();
             return;
           }
-          state.data = normalizedRemote;
+        }
+
+        if (dataTimestamp(normalizedRemote) > dataTimestamp(state.data)) {
+          state.data = mergeSharedProtection(normalizedRemote, state.data);
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
@@ -831,9 +893,9 @@
           return;
         }
 
-        const beforePasswords = passwordStateSignature(state.data);
-        const protectedData = mergePasswordProtection(state.data, normalizedRemote);
-        if (passwordStateSignature(protectedData) !== beforePasswords) {
+        const beforeProtected = protectedStateSignature(state.data);
+        const protectedData = mergeSharedProtection(state.data, normalizedRemote);
+        if (protectedStateSignature(protectedData) !== beforeProtected) {
           state.data = protectedData;
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
           if (state.view === "login") renderLogin();
@@ -860,7 +922,27 @@
       try {
         const cfg = state.backend.config;
         const remoteData = await fetchBackendData();
-        state.data = mergePasswordProtection(state.data, remoteData);
+        const normalizedRemote = remoteData ? normalizeStoredData(remoteData) : null;
+        if (normalizedRemote && participantsDiffer(state.data, normalizedRemote)) {
+          const localCustom = hasCustomParticipants(state.data);
+          const remoteCustom = hasCustomParticipants(normalizedRemote);
+          if (!localCustom && remoteCustom) {
+            state.data = mergeSharedProtection(normalizedRemote, state.data);
+            localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
+            state.backend.status = "online";
+            state.backend.error = "Protegido: dados padrao deste navegador nao sobrescreveram participantes do banco.";
+            state.backend.lastSync = new Date().toISOString();
+            renderBackendOnly();
+            return;
+          }
+          if (localCustom && remoteCustom) {
+            state.backend.status = "conflict";
+            state.backend.error = "Os participantes deste navegador diferem do banco. Envio bloqueado para nao sobrescrever dados.";
+            renderBackendOnly();
+            return;
+          }
+        }
+        state.data = mergeSharedProtection(state.data, normalizedRemote);
         localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
         const response = await fetch(`${backendBaseUrl()}?on_conflict=id`, {
           method: "POST",
@@ -1445,7 +1527,7 @@
     async function refreshParticipantPasswordFromBackend(name) {
       if (!backendIsConfigured()) return false;
       try {
-        const before = passwordStateSignature(state.data);
+        const before = protectedStateSignature(state.data);
         const remoteData = await fetchBackendData();
         if (!remoteData) {
           state.backend.status = "online";
@@ -1453,12 +1535,12 @@
           state.backend.lastSync = new Date().toISOString();
           return false;
         }
-        state.data = mergePasswordProtection(state.data, remoteData);
+        state.data = mergeSharedProtection(state.data, remoteData);
         localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
         state.backend.status = "online";
         state.backend.error = "";
         state.backend.lastSync = new Date().toISOString();
-        return before !== passwordStateSignature(state.data);
+        return before !== protectedStateSignature(state.data);
       } catch (error) {
         state.backend.status = "offline";
         state.backend.error = error.message || "erro ao verificar senha";
@@ -1970,6 +2052,8 @@
       if (!confirm(`Remover ${name} e apagar os palpites dessa pessoa?`)) return;
       state.data.participants = state.data.participants.filter(p => p !== name);
       delete state.data.predictions[name];
+      state.data.predictionResets ||= {};
+      state.data.predictionResets[name] = new Date().toISOString();
       if (state.data.participantPasswords) delete state.data.participantPasswords[name];
       if (state.data.participantPasswordResets) delete state.data.participantPasswordResets[name];
       saveData();
@@ -2032,6 +2116,8 @@
       if (!user) return toast("Escolha um participante");
       if (!confirm(`Resetar todos os palpites de ${user}?`)) return;
       delete state.data.predictions[user];
+      state.data.predictionResets ||= {};
+      state.data.predictionResets[user] = new Date().toISOString();
       saveData();
       toast("Palpites resetados");
       render();
