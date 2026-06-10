@@ -1,4 +1,4 @@
-const CACHE_NAME = "bolao-copa-2026-v19";
+const CACHE_NAME = "bolao-copa-2026-v20";
 const APP_SHELL = [
   "./",
   "index.html",

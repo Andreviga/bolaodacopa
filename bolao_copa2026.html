@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.08.19";
+    const APP_VERSION = "2026.06.10.20";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -543,7 +543,8 @@
         saveTimer: null,
         pollTimer: null,
         syncInFlight: false,
-        saveQueued: false
+        saveQueued: false,
+        dirtyFields: new Set()
       },
       results: {
         status: "idle",
@@ -573,6 +574,15 @@
       if (!state.backend) return;
       state.backend.lastRemoteData = cloneData(data);
       state.backend.lastRemoteUpdatedAt = updatedAt || new Date().toISOString();
+    }
+
+    function markDirtyFields(fields = []) {
+      if (!state.backend?.dirtyFields) return;
+      fields.forEach(field => state.backend.dirtyFields.add(field));
+    }
+
+    function clearDirtyFields() {
+      state.backend?.dirtyFields?.clear();
     }
 
     function sameJson(a, b) {
@@ -635,8 +645,9 @@
       const participantPassword = localData.participantPasswords?.[participantName];
       const localPasswords = participantName ? (participantPassword !== undefined ? { [participantName]: participantPassword } : {}) : localData.participantPasswords;
 
+      const dirtyFields = state.backend?.dirtyFields || new Set();
       ["participants", "adminPassword", "games", "rules"].forEach(key => {
-        if (syncAdminFields && hasKnownBase && localChangedFromBase(key, localData, baseData)) merged[key] = cloneData(localData[key]);
+        if (dirtyFields.has(key) || (syncAdminFields && hasKnownBase && localChangedFromBase(key, localData, baseData))) merged[key] = cloneData(localData[key]);
       });
 
       merged.predictions = mergeNestedMapChanges(remoteData?.predictions, localPredictions, baseData?.predictions);
@@ -825,10 +836,12 @@
     function touchData() {
       state.data.meta ||= {};
       state.data.meta.version = APP_VERSION;
+      state.data.meta.scheduleVersion = SCHEDULE_VERSION;
       state.data.meta.updatedAt = new Date().toISOString();
     }
 
     function saveData(options = {}) {
+      markDirtyFields(options.dirtyFields || []);
       if (!options.skipTouch) touchData();
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
       rememberLocalData();
@@ -1007,6 +1020,7 @@
         }
 
         if (!savedRow) throw new Error("Supabase concorrente: tente novamente");
+        clearDirtyFields();
         state.backend.status = "online";
         state.backend.error = "";
         state.backend.lastSync = new Date().toISOString();
@@ -1025,12 +1039,18 @@
       }
     }
 
+    function adminFormIsActive() {
+      if (state.view !== "admin") return false;
+      const active = document.activeElement;
+      return !!active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName || "");
+    }
+
     function renderBackendOnly() {
-      if (state.session?.role === "admin" && state.view === "admin") renderAdmin();
+      if (state.session?.role === "admin" && state.view === "admin" && !adminFormIsActive()) renderAdmin();
     }
 
     function renderAdminOnly() {
-      if (state.session?.role === "admin" && state.view === "admin") renderAdmin();
+      if (state.session?.role === "admin" && state.view === "admin" && !adminFormIsActive()) renderAdmin();
       if (state.session && state.view === "dashboard") renderDashboard();
     }
 
@@ -1119,7 +1139,7 @@
         state.results.error = conflicts.length ? `Conflitos: ${conflicts.slice(0, 2).join("; ")}` : "";
 
         if (updates.length) {
-          saveData();
+          saveData({ dirtyFields: ["games"] });
           if (!options.silent) toast(`${updates.length} resultado(s) atualizado(s)`);
         } else if (!options.silent) {
           toast(conflicts.length ? "Ha conflitos para revisar" : "Nenhum resultado novo");
@@ -2069,7 +2089,7 @@
             <h2>Participantes</h2>
             <div>${participants}</div>
             <div class="form-row">
-              <input id="newParticipant" placeholder="Nome do participante">
+              <input id="newParticipant" placeholder="Nome do participante" onkeydown="if(event.key==='Enter') addParticipant()">
               <button class="success" onclick="addParticipant()">Adicionar</button>
             </div>
           </div>
@@ -2168,7 +2188,7 @@
         game.wentOvertime = wentOvertime;
         game.advancedTeam = advancedTeam;
       }
-      saveData();
+      saveData({ dirtyFields: ["games"] });
       toast("Resultado salvo");
       render();
     }
@@ -2180,7 +2200,7 @@
       game.advancedTeam = null;
       game.wentOvertime = false;
       game.status = "pending";
-      saveData();
+      saveData({ dirtyFields: ["games"] });
       toast("Resultado removido");
       render();
     }
@@ -2194,7 +2214,7 @@
       if (state.data.participants.some(p => p.toLowerCase() === name.toLowerCase())) return toast("Nome ja cadastrado");
       if (state.data.participants.length >= 15) return toast("Limite de 15 participantes");
       state.data.participants.push(name);
-      saveData();
+      saveData({ dirtyFields: ["participants"] });
       render();
     }
 
@@ -2205,7 +2225,7 @@
       state.data.participants = state.data.participants.filter(p => p !== name);
       delete state.data.predictions[name];
       if (state.data.participantPasswords) delete state.data.participantPasswords[name];
-      saveData();
+      saveData({ dirtyFields: ["participants"] });
       render();
     }
 
@@ -2213,7 +2233,7 @@
       const password = document.getElementById("newPassword").value.trim();
       if (password.length < 4) return toast("Senha precisa ter pelo menos 4 caracteres");
       state.data.adminPassword = password;
-      saveData();
+      saveData({ dirtyFields: ["adminPassword"] });
       toast("Senha salva");
     }
 
@@ -2282,7 +2302,7 @@
       if (!hasParticipantPassword(user)) return toast("Este participante ainda nao tem senha");
       if (!confirm(`Resetar a senha de ${user}? No proximo acesso a pessoa criara uma nova senha.`)) return;
       delete state.data.participantPasswords[user];
-      saveData();
+      saveData({ dirtyFields: ["participantPasswords"] });
       toast("Senha do participante resetada");
       render();
     }
@@ -2334,7 +2354,7 @@
       const summary = readRulesSummary();
       if (!summary) return;
       state.data.rules = mergeRules({ scoring, summary });
-      saveData();
+      saveData({ dirtyFields: ["rules"] });
       toast("Regras salvas");
       render();
     }
@@ -2350,7 +2370,7 @@
       if (!summary) return;
       summary.push({ id: `custom-${Date.now()}`, title, description });
       state.data.rules = mergeRules({ scoring, summary });
-      saveData();
+      saveData({ dirtyFields: ["rules"] });
       toast("Regra adicionada");
       render();
     }
@@ -2363,7 +2383,7 @@
       if (!confirm(`Remover a regra "${rule.title}"?`)) return;
       rules.summary.splice(index, 1);
       state.data.rules = mergeRules(rules);
-      saveData();
+      saveData({ dirtyFields: ["rules"] });
       toast("Regra removida");
       render();
     }
@@ -2371,7 +2391,7 @@
     function resetRulesToDefault() {
       if (!confirm("Voltar para as regras e pontos padrao?")) return;
       state.data.rules = defaultRules();
-      saveData();
+      saveData({ dirtyFields: ["rules"] });
       toast("Regras padrao restauradas");
       render();
     }
