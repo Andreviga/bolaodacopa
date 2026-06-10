@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.10.3";
+    const APP_VERSION = "2026.06.10.4";
     const STORE_KEY = "bolaoCopa2026.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
     const DEFAULT_PASSWORD = "copa2026";
@@ -885,11 +885,15 @@
         }
 
         if (dataTimestamp(normalizedRemote) > dataTimestamp(state.data)) {
-          state.data = mergeSharedProtection(normalizedRemote, state.data);
+          const remoteProtectedBefore = protectedStateSignature(normalizedRemote);
+          const mergedData = mergeSharedProtection(normalizedRemote, state.data);
+          const shouldPushProtected = protectedStateSignature(mergedData) !== remoteProtectedBefore;
+          state.data = mergedData;
           localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
           state.backend.status = "online";
           state.backend.lastSync = new Date().toISOString();
           render();
+          if (shouldPushProtected) await pushBackendData();
           return;
         }
 
