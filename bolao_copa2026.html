@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.10.8";
+    const APP_VERSION = "2026.06.11.1";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -497,29 +497,32 @@
     };
 
     const GROUP_GAMES = [
-      ["A1","A","11/06/2026","16:00","Mexico","Africa do Sul"],["A2","A","11/06/2026","23:00","Coreia do Sul","Republica Tcheca"],["A3","A","18/06/2026","16:00","Mexico","Coreia do Sul"],["A4","A","18/06/2026","19:00","Africa do Sul","Republica Tcheca"],["A5","A","24/06/2026","22:00","Republica Tcheca","Mexico"],["A6","A","24/06/2026","22:00","Africa do Sul","Coreia do Sul"],
-      ["B1","B","12/06/2026","19:00","Canada","Catar"],["B2","B","13/06/2026","22:00","Suica","Italia"],["B3","B","18/06/2026","13:00","Canada","Suica"],["B4","B","18/06/2026","16:00","Catar","Italia"],["B5","B","24/06/2026","22:00","Italia","Canada"],["B6","B","24/06/2026","22:00","Catar","Suica"],
-      ["C1","C","13/06/2026","19:00","Brasil","Marrocos"],["C2","C","13/06/2026","22:00","Haiti","Escocia"],["C3","C","19/06/2026","16:00","Brasil","Haiti"],["C4","C","19/06/2026","19:00","Marrocos","Escocia"],["C5","C","24/06/2026","22:00","Escocia","Brasil"],["C6","C","24/06/2026","22:00","Haiti","Marrocos"],
-      ["D1","D","12/06/2026","16:00","Estados Unidos","Paraguai"],["D2","D","13/06/2026","13:00","Australia","Turquia"],["D3","D","19/06/2026","19:00","Estados Unidos","Australia"],["D4","D","19/06/2026","22:00","Turquia","Paraguai"],["D5","D","25/06/2026","19:00","Paraguai","Australia"],["D6","D","25/06/2026","19:00","Turquia","Estados Unidos"],
-      ["E1","E","14/06/2026","16:00","Alemanha","Curacao"],["E2","E","14/06/2026","19:00","Costa do Marfim","Equador"],["E3","E","20/06/2026","13:00","Alemanha","Costa do Marfim"],["E4","E","20/06/2026","16:00","Curacao","Equador"],["E5","E","25/06/2026","19:00","Equador","Alemanha"],["E6","E","25/06/2026","19:00","Curacao","Costa do Marfim"],
-      ["F1","F","14/06/2026","22:00","Holanda","Japao"],["F2","F","15/06/2026","13:00","Tunisia","Ucrania"],["F3","F","20/06/2026","19:00","Holanda","Tunisia"],["F4","F","20/06/2026","22:00","Japao","Ucrania"],["F5","F","25/06/2026","22:00","Ucrania","Holanda"],["F6","F","25/06/2026","22:00","Japao","Tunisia"],
-      ["G1","G","15/06/2026","16:00","Belgica","Egito"],["G2","G","15/06/2026","19:00","Ira","Nova Zelandia"],["G3","G","21/06/2026","13:00","Belgica","Ira"],["G4","G","21/06/2026","16:00","Egito","Nova Zelandia"],["G5","G","26/06/2026","16:00","Nova Zelandia","Belgica"],["G6","G","26/06/2026","16:00","Egito","Ira"],
-      ["H1","H","15/06/2026","22:00","Espanha","Cabo Verde"],["H2","H","15/06/2026","13:00","Arabia Saudita","Uruguai"],["H3","H","21/06/2026","19:00","Espanha","Arabia Saudita"],["H4","H","21/06/2026","22:00","Cabo Verde","Uruguai"],["H5","H","26/06/2026","19:00","Uruguai","Espanha"],["H6","H","26/06/2026","19:00","Cabo Verde","Arabia Saudita"],
-      ["I1","I","16/06/2026","16:00","Franca","Senegal"],["I2","I","16/06/2026","19:00","Noruega","Repescagem 2"],["I3","I","22/06/2026","13:00","Franca","Noruega"],["I4","I","22/06/2026","16:00","Senegal","Repescagem 2"],["I5","I","26/06/2026","16:00","Repescagem 2","Franca"],["I6","I","26/06/2026","16:00","Senegal","Noruega"],
-      ["J1","J","16/06/2026","22:00","Argentina","Argelia"],["J2","J","16/06/2026","13:00","Austria","Jordania"],["J3","J","22/06/2026","19:00","Argentina","Austria"],["J4","J","22/06/2026","22:00","Argelia","Jordania"],["J5","J","27/06/2026","19:00","Jordania","Argentina"],["J6","J","27/06/2026","19:00","Argelia","Austria"],
-      ["K1","K","17/06/2026","22:00","Portugal","Uzbequistao"],["K2","K","17/06/2026","13:00","Colombia","Repescagem 1"],["K3","K","23/06/2026","13:00","Portugal","Colombia"],["K4","K","23/06/2026","16:00","Uzbequistao","Repescagem 1"],["K5","K","27/06/2026","22:00","Repescagem 1","Portugal"],["K6","K","27/06/2026","22:00","Uzbequistao","Colombia"],
-      ["L1","L","17/06/2026","16:00","Inglaterra","Croacia"],["L2","L","17/06/2026","19:00","Gana","Panama"],["L3","L","23/06/2026","19:00","Inglaterra","Gana"],["L4","L","23/06/2026","22:00","Croacia","Panama"],["L5","L","27/06/2026","16:00","Panama","Inglaterra"],["L6","L","27/06/2026","16:00","Croacia","Gana"]
+      ["A1","A","11/06/2026","16:00","México","África do Sul"],["A2","A","11/06/2026","23:00","Coreia do Sul","República Tcheca"],["A3","A","18/06/2026","22:00","México","Coreia do Sul"],["A4","A","18/06/2026","13:00","República Tcheca","África do Sul"],["A5","A","24/06/2026","22:00","República Tcheca","México"],["A6","A","24/06/2026","22:00","África do Sul","Coreia do Sul"],
+      ["B1","B","18/06/2026","19:00","Canadá","Catar"],["B2","B","12/06/2026","16:00","Canadá","Bósnia"],["B3","B","24/06/2026","16:00","Suíça","Canadá"],["B4","B","18/06/2026","16:00","Suíça","Bósnia"],["B5","B","24/06/2026","16:00","Bósnia","Catar"],["B6","B","13/06/2026","16:00","Catar","Suíça"],
+      ["C1","C","13/06/2026","19:00","Brasil","Marrocos"],["C2","C","13/06/2026","22:00","Haiti","Escócia"],["C3","C","19/06/2026","21:30","Brasil","Haiti"],["C4","C","19/06/2026","19:00","Escócia","Marrocos"],["C5","C","24/06/2026","19:00","Escócia","Brasil"],["C6","C","24/06/2026","19:00","Marrocos","Haiti"],
+      ["D1","D","12/06/2026","22:00","Estados Unidos","Paraguai"],["D2","D","14/06/2026","01:00","Austrália","Turquia"],["D3","D","19/06/2026","16:00","Estados Unidos","Austrália"],["D4","D","20/06/2026","00:00","Turquia","Paraguai"],["D5","D","25/06/2026","23:00","Paraguai","Austrália"],["D6","D","25/06/2026","23:00","Turquia","Estados Unidos"],
+      ["E1","E","14/06/2026","14:00","Alemanha","Curaçao"],["E2","E","14/06/2026","20:00","Costa do Marfim","Equador"],["E3","E","20/06/2026","17:00","Alemanha","Costa do Marfim"],["E4","E","20/06/2026","21:00","Equador","Curaçao"],["E5","E","25/06/2026","17:00","Equador","Alemanha"],["E6","E","25/06/2026","17:00","Curaçao","Costa do Marfim"],
+      ["F1","F","14/06/2026","17:00","Holanda","Japão"],["F2","F","14/06/2026","23:00","Suécia","Tunísia"],["F3","F","25/06/2026","20:00","Tunísia","Holanda"],["F4","F","20/06/2026","14:00","Holanda","Suécia"],["F5","F","25/06/2026","20:00","Japão","Suécia"],["F6","F","21/06/2026","01:00","Tunísia","Japão"],
+      ["G1","G","15/06/2026","16:00","Bélgica","Egito"],["G2","G","15/06/2026","22:00","Irã","Nova Zelândia"],["G3","G","21/06/2026","16:00","Bélgica","Irã"],["G4","G","21/06/2026","22:00","Nova Zelândia","Egito"],["G5","G","27/06/2026","00:00","Nova Zelândia","Bélgica"],["G6","G","27/06/2026","00:00","Egito","Irã"],
+      ["H1","H","15/06/2026","13:00","Espanha","Cabo Verde"],["H2","H","15/06/2026","19:00","Arábia Saudita","Uruguai"],["H3","H","21/06/2026","13:00","Espanha","Arábia Saudita"],["H4","H","21/06/2026","19:00","Uruguai","Cabo Verde"],["H5","H","26/06/2026","21:00","Uruguai","Espanha"],["H6","H","26/06/2026","21:00","Cabo Verde","Arábia Saudita"],
+      ["I1","I","16/06/2026","16:00","França","Senegal"],["I2","I","16/06/2026","19:00","Iraque","Noruega"],["I3","I","26/06/2026","16:00","Noruega","França"],["I4","I","22/06/2026","18:00","França","Iraque"],["I5","I","26/06/2026","16:00","Senegal","Iraque"],["I6","I","22/06/2026","21:00","Noruega","Senegal"],
+      ["J1","J","16/06/2026","22:00","Argentina","Argélia"],["J2","J","17/06/2026","01:00","Áustria","Jordânia"],["J3","J","22/06/2026","14:00","Argentina","Áustria"],["J4","J","23/06/2026","00:00","Jordânia","Argélia"],["J5","J","27/06/2026","23:00","Jordânia","Argentina"],["J6","J","27/06/2026","23:00","Argélia","Áustria"],
+      ["K1","K","23/06/2026","14:00","Portugal","Uzbequistão"],["K2","K","17/06/2026","14:00","Portugal","RD Congo"],["K3","K","27/06/2026","20:30","Colômbia","Portugal"],["K4","K","23/06/2026","23:00","Colômbia","RD Congo"],["K5","K","27/06/2026","20:30","RD Congo","Uzbequistão"],["K6","K","17/06/2026","23:00","Uzbequistão","Colômbia"],
+      ["L1","L","17/06/2026","17:00","Inglaterra","Croácia"],["L2","L","17/06/2026","20:00","Gana","Panamá"],["L3","L","23/06/2026","17:00","Inglaterra","Gana"],["L4","L","23/06/2026","20:00","Panamá","Croácia"],["L5","L","27/06/2026","18:00","Panamá","Inglaterra"],["L6","L","27/06/2026","18:00","Croácia","Gana"]
     ];
 
     const KNOCKOUTS = [
-      ["R32-01","Rodada de 32","01/07/2026","13:00","1o Grupo A","2o Grupo B"],["R32-02","Rodada de 32","01/07/2026","16:00","1o Grupo C","2o Grupo D"],["R32-03","Rodada de 32","01/07/2026","19:00","1o Grupo E","2o Grupo F"],["R32-04","Rodada de 32","01/07/2026","22:00","1o Grupo G","2o Grupo H"],
-      ["R32-05","Rodada de 32","02/07/2026","13:00","1o Grupo I","2o Grupo J"],["R32-06","Rodada de 32","02/07/2026","16:00","1o Grupo K","2o Grupo L"],["R32-07","Rodada de 32","02/07/2026","19:00","1o Grupo B","2o Grupo A"],["R32-08","Rodada de 32","02/07/2026","22:00","1o Grupo D","2o Grupo C"],
-      ["R32-09","Rodada de 32","03/07/2026","13:00","1o Grupo F","2o Grupo E"],["R32-10","Rodada de 32","03/07/2026","16:00","1o Grupo H","2o Grupo G"],["R32-11","Rodada de 32","03/07/2026","19:00","1o Grupo J","2o Grupo I"],["R32-12","Rodada de 32","03/07/2026","22:00","1o Grupo L","2o Grupo K"],
-      ["R32-13","Rodada de 32","04/07/2026","13:00","3o colocado","Adversario definido"],["R32-14","Rodada de 32","04/07/2026","16:00","3o colocado","Adversario definido"],["R32-15","Rodada de 32","04/07/2026","19:00","3o colocado","Adversario definido"],["R32-16","Rodada de 32","04/07/2026","22:00","3o colocado","Adversario definido"],
-      ["OF-01","Oitavas","05/07/2026","16:00","Vencedor R32-01","Vencedor R32-02"],["OF-02","Oitavas","05/07/2026","20:00","Vencedor R32-03","Vencedor R32-04"],["OF-03","Oitavas","06/07/2026","16:00","Vencedor R32-05","Vencedor R32-06"],["OF-04","Oitavas","06/07/2026","20:00","Vencedor R32-07","Vencedor R32-08"],["OF-05","Oitavas","07/07/2026","16:00","Vencedor R32-09","Vencedor R32-10"],["OF-06","Oitavas","07/07/2026","20:00","Vencedor R32-11","Vencedor R32-12"],["OF-07","Oitavas","08/07/2026","16:00","Vencedor R32-13","Vencedor R32-14"],["OF-08","Oitavas","08/07/2026","20:00","Vencedor R32-15","Vencedor R32-16"],
-      ["QF-01","Quartas","10/07/2026","16:00","Vencedor OF-01","Vencedor OF-02"],["QF-02","Quartas","10/07/2026","20:00","Vencedor OF-03","Vencedor OF-04"],["QF-03","Quartas","11/07/2026","16:00","Vencedor OF-05","Vencedor OF-06"],["QF-04","Quartas","11/07/2026","20:00","Vencedor OF-07","Vencedor OF-08"],
-      ["SF-01","Semifinal","14/07/2026","20:00","Vencedor QF-01","Vencedor QF-02"],["SF-02","Semifinal","15/07/2026","20:00","Vencedor QF-03","Vencedor QF-04"],["3PL","3o lugar","18/07/2026","16:00","Perdedor SF-01","Perdedor SF-02"],["FIN","Final","19/07/2026","16:00","Vencedor SF-01","Vencedor SF-02"]
+      ["R32-01","Rodada de 32","29/06/2026","17:30","1o Grupo E","3o A/B/C/D/F"],["R32-02","Rodada de 32","30/06/2026","18:00","1o Grupo I","3o C/D/F/G/H"],["R32-03","Rodada de 32","28/06/2026","16:00","2o Grupo A","2o Grupo B"],["R32-04","Rodada de 32","29/06/2026","22:00","1o Grupo F","2o Grupo C"],
+      ["R32-05","Rodada de 32","02/07/2026","20:00","2o Grupo K","2o Grupo L"],["R32-06","Rodada de 32","02/07/2026","16:00","1o Grupo H","2o Grupo J"],["R32-07","Rodada de 32","01/07/2026","21:00","1o Grupo D","3o B/E/F/I/J"],["R32-08","Rodada de 32","01/07/2026","17:00","1o Grupo G","3o A/E/H/I/J"],
+      ["R32-09","Rodada de 32","29/06/2026","14:00","1o Grupo C","2o Grupo F"],["R32-10","Rodada de 32","30/06/2026","14:00","2o Grupo E","2o Grupo I"],["R32-11","Rodada de 32","30/06/2026","22:00","1o Grupo A","3o C/E/F/H/I"],["R32-12","Rodada de 32","01/07/2026","13:00","1o Grupo L","3o E/H/I/J/K"],
+      ["R32-13","Rodada de 32","03/07/2026","19:00","1o Grupo J","2o Grupo H"],["R32-14","Rodada de 32","03/07/2026","15:00","2o Grupo D","2o Grupo G"],["R32-15","Rodada de 32","03/07/2026","00:00","1o Grupo B","3o E/F/G/I/J"],["R32-16","Rodada de 32","03/07/2026","22:30","1o Grupo K","3o D/E/I/J/L"],
+      ["OF-01","Oitavas","04/07/2026","18:00","Vencedor R32-01","Vencedor R32-02"],["OF-02","Oitavas","04/07/2026","14:00","Vencedor R32-03","Vencedor R32-04"],["OF-03","Oitavas","06/07/2026","16:00","Vencedor R32-05","Vencedor R32-06"],["OF-04","Oitavas","06/07/2026","21:00","Vencedor R32-07","Vencedor R32-08"],["OF-05","Oitavas","05/07/2026","17:00","Vencedor R32-09","Vencedor R32-10"],["OF-06","Oitavas","05/07/2026","21:00","Vencedor R32-11","Vencedor R32-12"],["OF-07","Oitavas","07/07/2026","13:00","Vencedor R32-13","Vencedor R32-14"],["OF-08","Oitavas","07/07/2026","17:00","Vencedor R32-15","Vencedor R32-16"],
+      ["QF-01","Quartas","09/07/2026","17:00","Vencedor OF-01","Vencedor OF-02"],["QF-02","Quartas","10/07/2026","16:00","Vencedor OF-03","Vencedor OF-04"],["QF-03","Quartas","11/07/2026","18:00","Vencedor OF-05","Vencedor OF-06"],["QF-04","Quartas","11/07/2026","22:00","Vencedor OF-07","Vencedor OF-08"],
+      ["SF-01","Semifinal","14/07/2026","16:00","Vencedor QF-01","Vencedor QF-02"],["SF-02","Semifinal","15/07/2026","16:00","Vencedor QF-03","Vencedor QF-04"],["3PL","3o lugar","18/07/2026","18:00","Perdedor SF-01","Perdedor SF-02"],["FIN","Final","19/07/2026","16:00","Vencedor SF-01","Vencedor SF-02"]
     ];
+    const GE_SCHEDULE_MIGRATION_VERSION = "2026.06.11.1";
+    const GE_SCHEDULE_MIGRATION_KEY = "geSchedule20260611";
+    const GE_SCHEDULE_SWAPPED_GAMES = ["A4","B3","C4","C6","E4","F3","F6","G4","H4","I3","I6","J4","K3","L4"];
 
     const state = {
       data: loadData(),
@@ -645,11 +648,15 @@
       const baseById = new Map((baseGames || []).map(game => [game.id, game]));
       return savedGames.map(game => {
         const base = baseById.get(game.id);
+        const groupGame = base?.type === "group" || game.type === "group";
+        const refreshTeams = !!base && (groupGame || (!game.result && game.type === "knockout"));
         return {
           ...game,
           datetime: base?.datetime || game.datetime,
-          sourceHomeTeam: game.sourceHomeTeam || base?.sourceHomeTeam || base?.homeTeam || game.homeTeam,
-          sourceAwayTeam: game.sourceAwayTeam || base?.sourceAwayTeam || base?.awayTeam || game.awayTeam
+          homeTeam: refreshTeams ? base.homeTeam : game.homeTeam,
+          awayTeam: refreshTeams ? base.awayTeam : game.awayTeam,
+          sourceHomeTeam: base?.sourceHomeTeam || base?.homeTeam || game.sourceHomeTeam || game.homeTeam,
+          sourceAwayTeam: base?.sourceAwayTeam || base?.awayTeam || game.sourceAwayTeam || game.awayTeam
         };
       });
     }
@@ -766,8 +773,49 @@
       return data;
     }
 
+    function versionBefore(value, target) {
+      const a = String(value || "0").split(".").map(part => Number(part) || 0);
+      const b = String(target || "0").split(".").map(part => Number(part) || 0);
+      const length = Math.max(a.length, b.length);
+      for (let i = 0; i < length; i++) {
+        const left = a[i] || 0;
+        const right = b[i] || 0;
+        if (left !== right) return left < right;
+      }
+      return false;
+    }
+
+    function swapScoreSides(entry) {
+      if (!entry || typeof entry !== "object") return;
+      if (!Object.prototype.hasOwnProperty.call(entry, "home") && !Object.prototype.hasOwnProperty.call(entry, "away")) return;
+      const home = entry.home;
+      entry.home = entry.away;
+      entry.away = home;
+    }
+
+    function migrateGeScheduleOrientation(data, force = false) {
+      if (!data || typeof data !== "object") return data;
+      data.meta ||= {};
+      if (data.meta[GE_SCHEDULE_MIGRATION_KEY]) return data;
+      if (!force && !versionBefore(data.meta.version, GE_SCHEDULE_MIGRATION_VERSION)) return data;
+
+      const swappedGames = new Set(GE_SCHEDULE_SWAPPED_GAMES);
+      Object.values(data.predictions || {}).forEach(entries => {
+        swappedGames.forEach(gameId => swapScoreSides(entries?.[gameId]));
+      });
+      Object.values(data.predictionArchive || {}).forEach(entries => {
+        swappedGames.forEach(gameId => swapScoreSides(entries?.[gameId]));
+      });
+      (data.games || []).forEach(game => {
+        if (!swappedGames.has(game.id)) return;
+        swapScoreSides(game.result);
+      });
+      data.meta[GE_SCHEDULE_MIGRATION_KEY] = true;
+      return data;
+    }
+
     function normalizeStoredData(savedData = {}) {
-      const parsed = savedData || {};
+      const parsed = migrateGeScheduleOrientation(savedData || {});
       const base = defaultData();
       return cleanPredictionState(cleanPasswordState({
         ...base,
@@ -828,7 +876,7 @@
 
     function loadLocalPredictionBackup() {
       try {
-        return JSON.parse(localStorage.getItem(PREDICTION_BACKUP_KEY) || "{}");
+        return migrateGeScheduleOrientation(JSON.parse(localStorage.getItem(PREDICTION_BACKUP_KEY) || "{}"), true);
       } catch {
         return {};
       }
@@ -867,6 +915,7 @@
         mergePredictionArchive(backup, data);
         backup.updatedAt = new Date().toISOString();
         localStorage.setItem(PREDICTION_BACKUP_KEY, JSON.stringify({
+          meta: backup.meta || {},
           predictionArchive: backup.predictionArchive || {},
           predictionResets: backup.predictionResets || {},
           updatedAt: backup.updatedAt
@@ -1269,7 +1318,7 @@
       return result;
     }
     function isDynamicTeamSource(source) {
-      return /^(Vencedor|Perdedor)\s+/.test(source || "") || /^[12]o Grupo [A-L]$/.test(source || "");
+      return /^(Vencedor|Perdedor)\s+/.test(source || "") || /^[12]o Grupo [A-L]$/.test(source || "") || /^3o [A-L/]+$/.test(source || "");
     }
     function resolveTeamSource(source, gameById, groupRanks) {
       const text = String(source || "").trim();
@@ -1355,6 +1404,13 @@
       "uzbequistao": "🇺🇿"
     };
 
+    Object.assign(TEAM_FLAGS, {
+      "bosnia": "🇧🇦",
+      "iraque": "🇮🇶",
+      "rd congo": "🇨🇩",
+      "suecia": "🇸🇪"
+    });
+
     function normalizeTeamName(name) {
       return String(name || "")
         .normalize("NFD")
@@ -1366,6 +1422,7 @@
     function flagForTeam(name) {
       const normalized = normalizeTeamName(name);
       if (TEAM_FLAGS[normalized]) return TEAM_FLAGS[normalized];
+      if (/^[123]o\b/.test(normalized)) return "🏆";
       if (/repescagem|grupo|vencedor|perdedor|adversario|colocado/.test(normalized)) return "🏆";
       return "🌐";
     }
@@ -1382,6 +1439,8 @@
       "algeria": "argelia",
       "austria": "austria",
       "belgium": "belgica",
+      "bosnia": "bosnia",
+      "bosnia and herzegovina": "bosnia",
       "brazil": "brasil",
       "canada": "canada",
       "cape verde": "cabo verde",
@@ -1389,6 +1448,10 @@
       "costa rica": "costa rica",
       "curacao": "curacao",
       "czech republic": "republica tcheca",
+      "czechia": "republica tcheca",
+      "congo dr": "rd congo",
+      "democratic republic of the congo": "rd congo",
+      "dr congo": "rd congo",
       "ecuador": "equador",
       "egypt": "egito",
       "england": "inglaterra",
@@ -1397,6 +1460,7 @@
       "ghana": "gana",
       "haiti": "haiti",
       "iran": "ira",
+      "iraq": "iraque",
       "italy": "italia",
       "ivory coast": "costa do marfim",
       "japan": "japao",
@@ -1416,6 +1480,7 @@
       "south africa": "africa do sul",
       "south korea": "coreia do sul",
       "spain": "espanha",
+      "sweden": "suecia",
       "switzerland": "suica",
       "tunisia": "tunisia",
       "turkey": "turquia",
@@ -1465,7 +1530,7 @@
     }
 
     function isPlaceholderTeam(name) {
-      return /repescagem|grupo|vencedor|perdedor|adversario|colocado/i.test(normalizeTeamName(name));
+      return /repescagem|grupo|vencedor|perdedor|adversario|colocado|^[123]o\b/i.test(normalizeTeamName(name));
     }
 
     function alertItem(level, title, message) {
