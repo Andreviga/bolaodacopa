@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.10.7";
+    const APP_VERSION = "2026.06.10.8";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -497,18 +497,18 @@
     };
 
     const GROUP_GAMES = [
-      ["A1","A","11/06/2026","16:00","Mexico","Africa do Sul"],["A2","A","12/06/2026","13:00","Coreia do Sul","Republica Tcheca"],["A3","A","17/06/2026","16:00","Mexico","Coreia do Sul"],["A4","A","17/06/2026","19:00","Africa do Sul","Republica Tcheca"],["A5","A","22/06/2026","22:00","Republica Tcheca","Mexico"],["A6","A","22/06/2026","22:00","Africa do Sul","Coreia do Sul"],
-      ["B1","B","12/06/2026","19:00","Canada","Catar"],["B2","B","12/06/2026","22:00","Suica","Italia"],["B3","B","18/06/2026","13:00","Canada","Suica"],["B4","B","18/06/2026","16:00","Catar","Italia"],["B5","B","23/06/2026","22:00","Italia","Canada"],["B6","B","23/06/2026","22:00","Catar","Suica"],
+      ["A1","A","11/06/2026","16:00","Mexico","Africa do Sul"],["A2","A","11/06/2026","23:00","Coreia do Sul","Republica Tcheca"],["A3","A","18/06/2026","16:00","Mexico","Coreia do Sul"],["A4","A","18/06/2026","19:00","Africa do Sul","Republica Tcheca"],["A5","A","24/06/2026","22:00","Republica Tcheca","Mexico"],["A6","A","24/06/2026","22:00","Africa do Sul","Coreia do Sul"],
+      ["B1","B","12/06/2026","19:00","Canada","Catar"],["B2","B","13/06/2026","22:00","Suica","Italia"],["B3","B","18/06/2026","13:00","Canada","Suica"],["B4","B","18/06/2026","16:00","Catar","Italia"],["B5","B","24/06/2026","22:00","Italia","Canada"],["B6","B","24/06/2026","22:00","Catar","Suica"],
       ["C1","C","13/06/2026","19:00","Brasil","Marrocos"],["C2","C","13/06/2026","22:00","Haiti","Escocia"],["C3","C","19/06/2026","16:00","Brasil","Haiti"],["C4","C","19/06/2026","19:00","Marrocos","Escocia"],["C5","C","24/06/2026","22:00","Escocia","Brasil"],["C6","C","24/06/2026","22:00","Haiti","Marrocos"],
-      ["D1","D","12/06/2026","16:00","Estados Unidos","Paraguai"],["D2","D","13/06/2026","13:00","Australia","Turquia"],["D3","D","18/06/2026","19:00","Estados Unidos","Australia"],["D4","D","18/06/2026","22:00","Turquia","Paraguai"],["D5","D","24/06/2026","19:00","Paraguai","Australia"],["D6","D","24/06/2026","19:00","Turquia","Estados Unidos"],
+      ["D1","D","12/06/2026","16:00","Estados Unidos","Paraguai"],["D2","D","13/06/2026","13:00","Australia","Turquia"],["D3","D","19/06/2026","19:00","Estados Unidos","Australia"],["D4","D","19/06/2026","22:00","Turquia","Paraguai"],["D5","D","25/06/2026","19:00","Paraguai","Australia"],["D6","D","25/06/2026","19:00","Turquia","Estados Unidos"],
       ["E1","E","14/06/2026","16:00","Alemanha","Curacao"],["E2","E","14/06/2026","19:00","Costa do Marfim","Equador"],["E3","E","20/06/2026","13:00","Alemanha","Costa do Marfim"],["E4","E","20/06/2026","16:00","Curacao","Equador"],["E5","E","25/06/2026","19:00","Equador","Alemanha"],["E6","E","25/06/2026","19:00","Curacao","Costa do Marfim"],
       ["F1","F","14/06/2026","22:00","Holanda","Japao"],["F2","F","15/06/2026","13:00","Tunisia","Ucrania"],["F3","F","20/06/2026","19:00","Holanda","Tunisia"],["F4","F","20/06/2026","22:00","Japao","Ucrania"],["F5","F","25/06/2026","22:00","Ucrania","Holanda"],["F6","F","25/06/2026","22:00","Japao","Tunisia"],
       ["G1","G","15/06/2026","16:00","Belgica","Egito"],["G2","G","15/06/2026","19:00","Ira","Nova Zelandia"],["G3","G","21/06/2026","13:00","Belgica","Ira"],["G4","G","21/06/2026","16:00","Egito","Nova Zelandia"],["G5","G","26/06/2026","16:00","Nova Zelandia","Belgica"],["G6","G","26/06/2026","16:00","Egito","Ira"],
-      ["H1","H","15/06/2026","22:00","Espanha","Cabo Verde"],["H2","H","16/06/2026","13:00","Arabia Saudita","Uruguai"],["H3","H","21/06/2026","19:00","Espanha","Arabia Saudita"],["H4","H","21/06/2026","22:00","Cabo Verde","Uruguai"],["H5","H","26/06/2026","19:00","Uruguai","Espanha"],["H6","H","26/06/2026","19:00","Cabo Verde","Arabia Saudita"],
-      ["I1","I","16/06/2026","16:00","Franca","Senegal"],["I2","I","16/06/2026","19:00","Noruega","Repescagem 2"],["I3","I","22/06/2026","13:00","Franca","Noruega"],["I4","I","22/06/2026","16:00","Senegal","Repescagem 2"],["I5","I","27/06/2026","16:00","Repescagem 2","Franca"],["I6","I","27/06/2026","16:00","Senegal","Noruega"],
-      ["J1","J","16/06/2026","22:00","Argentina","Argelia"],["J2","J","17/06/2026","13:00","Austria","Jordania"],["J3","J","22/06/2026","19:00","Argentina","Austria"],["J4","J","22/06/2026","22:00","Argelia","Jordania"],["J5","J","27/06/2026","19:00","Jordania","Argentina"],["J6","J","27/06/2026","19:00","Argelia","Austria"],
-      ["K1","K","17/06/2026","22:00","Portugal","Uzbequistao"],["K2","K","18/06/2026","13:00","Colombia","Repescagem 1"],["K3","K","23/06/2026","13:00","Portugal","Colombia"],["K4","K","23/06/2026","16:00","Uzbequistao","Repescagem 1"],["K5","K","27/06/2026","22:00","Repescagem 1","Portugal"],["K6","K","27/06/2026","22:00","Uzbequistao","Colombia"],
-      ["L1","L","17/06/2026","16:00","Inglaterra","Croacia"],["L2","L","17/06/2026","19:00","Gana","Panama"],["L3","L","23/06/2026","19:00","Inglaterra","Gana"],["L4","L","23/06/2026","22:00","Croacia","Panama"],["L5","L","28/06/2026","16:00","Panama","Inglaterra"],["L6","L","28/06/2026","16:00","Croacia","Gana"]
+      ["H1","H","15/06/2026","22:00","Espanha","Cabo Verde"],["H2","H","15/06/2026","13:00","Arabia Saudita","Uruguai"],["H3","H","21/06/2026","19:00","Espanha","Arabia Saudita"],["H4","H","21/06/2026","22:00","Cabo Verde","Uruguai"],["H5","H","26/06/2026","19:00","Uruguai","Espanha"],["H6","H","26/06/2026","19:00","Cabo Verde","Arabia Saudita"],
+      ["I1","I","16/06/2026","16:00","Franca","Senegal"],["I2","I","16/06/2026","19:00","Noruega","Repescagem 2"],["I3","I","22/06/2026","13:00","Franca","Noruega"],["I4","I","22/06/2026","16:00","Senegal","Repescagem 2"],["I5","I","26/06/2026","16:00","Repescagem 2","Franca"],["I6","I","26/06/2026","16:00","Senegal","Noruega"],
+      ["J1","J","16/06/2026","22:00","Argentina","Argelia"],["J2","J","16/06/2026","13:00","Austria","Jordania"],["J3","J","22/06/2026","19:00","Argentina","Austria"],["J4","J","22/06/2026","22:00","Argelia","Jordania"],["J5","J","27/06/2026","19:00","Jordania","Argentina"],["J6","J","27/06/2026","19:00","Argelia","Austria"],
+      ["K1","K","17/06/2026","22:00","Portugal","Uzbequistao"],["K2","K","17/06/2026","13:00","Colombia","Repescagem 1"],["K3","K","23/06/2026","13:00","Portugal","Colombia"],["K4","K","23/06/2026","16:00","Uzbequistao","Repescagem 1"],["K5","K","27/06/2026","22:00","Repescagem 1","Portugal"],["K6","K","27/06/2026","22:00","Uzbequistao","Colombia"],
+      ["L1","L","17/06/2026","16:00","Inglaterra","Croacia"],["L2","L","17/06/2026","19:00","Gana","Panama"],["L3","L","23/06/2026","19:00","Inglaterra","Gana"],["L4","L","23/06/2026","22:00","Croacia","Panama"],["L5","L","27/06/2026","16:00","Panama","Inglaterra"],["L6","L","27/06/2026","16:00","Croacia","Gana"]
     ];
 
     const KNOCKOUTS = [
@@ -647,6 +647,7 @@
         const base = baseById.get(game.id);
         return {
           ...game,
+          datetime: base?.datetime || game.datetime,
           sourceHomeTeam: game.sourceHomeTeam || base?.sourceHomeTeam || base?.homeTeam || game.homeTeam,
           sourceAwayTeam: game.sourceAwayTeam || base?.sourceAwayTeam || base?.awayTeam || game.awayTeam
         };
