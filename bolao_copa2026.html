@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.10.6";
+    const APP_VERSION = "2026.06.10.7";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -526,6 +526,7 @@
       session: JSON.parse(localStorage.getItem("bolaoSession") || "null"),
       view: "login",
       filter: "all",
+      gameOrder: "upcoming",
       query: "",
       backend: {
         config: getBackendConfig(),
@@ -599,6 +600,8 @@
         type: knockout ? "knockout" : "group",
         homeTeam: row[4],
         awayTeam: row[5],
+        sourceHomeTeam: row[4],
+        sourceAwayTeam: row[5],
         datetime: toIso(row[2], row[3]),
         result: null,
         advancedTeam: null,
@@ -635,6 +638,19 @@
         scoring: { ...base.scoring, ...(savedRules.scoring || {}) },
         summary: Array.isArray(savedRules.summary) && savedRules.summary.length ? savedRules.summary : base.summary
       };
+    }
+
+    function hydrateGames(savedGames, baseGames) {
+      if (!Array.isArray(savedGames) || !savedGames.length) return baseGames;
+      const baseById = new Map((baseGames || []).map(game => [game.id, game]));
+      return savedGames.map(game => {
+        const base = baseById.get(game.id);
+        return {
+          ...game,
+          sourceHomeTeam: game.sourceHomeTeam || base?.sourceHomeTeam || base?.homeTeam || game.homeTeam,
+          sourceAwayTeam: game.sourceAwayTeam || base?.sourceAwayTeam || base?.awayTeam || game.awayTeam
+        };
+      });
     }
 
     const SCORING_FIELDS = [
@@ -756,7 +772,7 @@
         ...base,
         ...parsed,
         meta: { ...base.meta, ...(parsed.meta || {}) },
-        games: Array.isArray(parsed.games) && parsed.games.length ? parsed.games : base.games,
+        games: hydrateGames(parsed.games, base.games),
         predictions: parsed.predictions || {},
         predictionArchive: parsed.predictionArchive || {},
         predictionResets: parsed.predictionResets || {},
@@ -1146,6 +1162,8 @@
         }
       });
 
+      const derivedUpdates = updates.length ? updateDerivedTeamsFromResults() : 0;
+      if (derivedUpdates) updates.push(`${derivedUpdates} vaga(s) futura(s) atualizada(s)`);
       return { updates, conflicts };
     }
 
@@ -1198,6 +1216,87 @@
     function gameDeadline(game) { return new Date(game.datetime).getTime() - 60 * 60 * 1000; }
     function isLocked(game) { return Date.now() >= gameDeadline(game); }
     function getPred(user, gameId) { return state.data.predictions[user]?.[gameId] || null; }
+    function gameWinner(game) {
+      if (!game?.result) return null;
+      if (game.type === "knockout" && game.advancedTeam) return game.advancedTeam;
+      if (game.result.home > game.result.away) return game.homeTeam;
+      if (game.result.away > game.result.home) return game.awayTeam;
+      return null;
+    }
+    function gameLoser(game) {
+      const winner = gameWinner(game);
+      if (!winner) return null;
+      return winner === game.homeTeam ? game.awayTeam : game.homeTeam;
+    }
+    function groupQualifiedTeams() {
+      const result = {};
+      const groups = {};
+      state.data.games.filter(game => game.type === "group").forEach(game => {
+        groups[game.group] ||= [];
+        groups[game.group].push(game);
+      });
+      Object.entries(groups).forEach(([group, games]) => {
+        if (games.length < 6 || games.some(game => !game.result)) return;
+        const table = {};
+        const rowFor = team => table[team] ||= { team, pts: 0, wins: 0, gf: 0, ga: 0, gd: 0 };
+        games.forEach(game => {
+          const home = rowFor(game.homeTeam);
+          const away = rowFor(game.awayTeam);
+          home.gf += game.result.home;
+          home.ga += game.result.away;
+          away.gf += game.result.away;
+          away.ga += game.result.home;
+          home.gd = home.gf - home.ga;
+          away.gd = away.gf - away.ga;
+          if (game.result.home > game.result.away) {
+            home.pts += 3;
+            home.wins += 1;
+          } else if (game.result.away > game.result.home) {
+            away.pts += 3;
+            away.wins += 1;
+          } else {
+            home.pts += 1;
+            away.pts += 1;
+          }
+        });
+        const sorted = Object.values(table).sort((a,b) =>
+          b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || b.wins - a.wins || a.team.localeCompare(b.team)
+        );
+        if (sorted[0]) result[`1o Grupo ${group}`] = sorted[0].team;
+        if (sorted[1]) result[`2o Grupo ${group}`] = sorted[1].team;
+      });
+      return result;
+    }
+    function isDynamicTeamSource(source) {
+      return /^(Vencedor|Perdedor)\s+/.test(source || "") || /^[12]o Grupo [A-L]$/.test(source || "");
+    }
+    function resolveTeamSource(source, gameById, groupRanks) {
+      const text = String(source || "").trim();
+      let match = text.match(/^Vencedor\s+(.+)$/);
+      if (match) return gameWinner(gameById.get(match[1]));
+      match = text.match(/^Perdedor\s+(.+)$/);
+      if (match) return gameLoser(gameById.get(match[1]));
+      return groupRanks[text] || null;
+    }
+    function updateDerivedTeamsFromResults() {
+      const gameById = new Map(state.data.games.map(game => [game.id, game]));
+      const groupRanks = groupQualifiedTeams();
+      let changes = 0;
+      state.data.games.forEach(game => {
+        if (game.type !== "knockout" || game.result) return;
+        [["homeTeam", "sourceHomeTeam"], ["awayTeam", "sourceAwayTeam"]].forEach(([teamKey, sourceKey]) => {
+          game[sourceKey] ||= game[teamKey];
+          const source = game[sourceKey];
+          const resolved = resolveTeamSource(source, gameById, groupRanks);
+          const nextTeam = resolved || (isDynamicTeamSource(source) ? source : game[teamKey]);
+          if (nextTeam && game[teamKey] !== nextTeam) {
+            game[teamKey] = nextTeam;
+            changes += 1;
+          }
+        });
+      });
+      return changes;
+    }
     function dateLabel(iso) {
       return new Date(iso).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
     }
@@ -1753,7 +1852,8 @@
     function filteredGames() {
       const user = state.session.name;
       const q = state.query.trim().toLowerCase();
-      return state.data.games.filter(g => {
+      const originalOrder = new Map(state.data.games.map((game, index) => [game.id, index]));
+      const games = state.data.games.filter(g => {
         const pred = getPred(user, g.id);
         const done = !!g.result;
         const locked = isLocked(g);
@@ -1765,16 +1865,28 @@
         const byQuery = !q || `${g.homeTeam} ${g.awayTeam} ${g.id} ${g.phase}`.toLowerCase().includes(q);
         return byFilter && byQuery;
       });
+      const now = Date.now();
+      return games.sort((a,b) => {
+        const timeA = new Date(a.datetime).getTime();
+        const timeB = new Date(b.datetime).getTime();
+        if (state.gameOrder === "recent") return timeB - timeA || originalOrder.get(a.id) - originalOrder.get(b.id);
+        if (state.gameOrder === "group") return originalOrder.get(a.id) - originalOrder.get(b.id);
+        const bucketA = timeA >= now && !a.result ? 0 : 1;
+        const bucketB = timeB >= now && !b.result ? 0 : 1;
+        return bucketA - bucketB || (bucketA === 0 ? timeA - timeB : timeB - timeA) || originalOrder.get(a.id) - originalOrder.get(b.id);
+      });
     }
 
     function renderGames() {
       const filters = [["all","Todos"],["pending","Pendentes"],["made","Com palpite"],["closed","Bloqueados"]];
+      const orderFilters = [["upcoming","Proximos"],["recent","Mais recentes"],["group","Por grupo"]];
       const games = filteredGames();
       document.getElementById("games").innerHTML = `
         <div class="toolbar">
           <div class="filters">${filters.map(([id,label]) => `<button class="chip ${state.filter===id?"active":""}" onclick="setFilter('${id}')">${label}</button>`).join("")}</div>
           <input value="${escapeHtml(state.query)}" placeholder="Buscar por time, fase ou codigo" oninput="setQuery(this.value)">
         </div>
+        <div class="filters" style="margin:10px 0 14px">${orderFilters.map(([id,label]) => `<button class="chip ${state.gameOrder===id?"active":""}" onclick="setGameOrder('${id}')">${label}</button>`).join("")}</div>
         <div class="game-list">${games.length ? games.map(g => gameCard(g)).join("") : alertsHtml([alertItem("info", "Nenhum jogo encontrado", "Limpe a busca ou troque o filtro para ver mais jogos.")], "Aviso")}</div>`;
     }
 
@@ -2132,8 +2244,9 @@
         game.wentOvertime = wentOvertime;
         game.advancedTeam = advancedTeam;
       }
+      const derivedUpdates = updateDerivedTeamsFromResults();
       saveData();
-      toast("Resultado salvo");
+      toast(derivedUpdates ? "Resultado salvo e mata-mata atualizado" : "Resultado salvo");
       render();
     }
 
@@ -2144,6 +2257,7 @@
       game.advancedTeam = null;
       game.wentOvertime = false;
       game.status = "pending";
+      updateDerivedTeamsFromResults();
       saveData();
       toast("Resultado removido");
       render();
@@ -2409,6 +2523,7 @@
       input.value = Math.max(0, Number(input.value || 0) + diff);
     }
     function setFilter(id) { state.filter = id; renderGames(); }
+    function setGameOrder(id) { state.gameOrder = id; renderGames(); }
     function setQuery(value) { state.query = value; renderGames(); }
     function go(id) { state.view = id; render(); }
     function goAdminGame(id) { state.view = "admin"; render(); document.getElementById("adminGame").value = id; fillAdminGame(); }
