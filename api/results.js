@@ -77,13 +77,17 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    const matches = (payload.response || []).map(normalizeFixture);
+
     sendJson(res, 200, {
       ok: true,
       provider: "api-football",
       league,
       season,
       checkedAt: new Date().toISOString(),
-      matches: (payload.response || []).map(normalizeFixture)
+      matchCount: matches.length,
+      warning: matches.length ? "" : "NO_MATCHES_RETURNED",
+      matches
     });
   } catch (error) {
     sendJson(res, 500, {

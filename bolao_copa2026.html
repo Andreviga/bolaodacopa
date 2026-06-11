@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.11.1";
+    const APP_VERSION = "2026.06.11.2";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -773,6 +773,27 @@
       return data;
     }
 
+    function recoverParticipantNames(data, fallback = []) {
+      const names = [];
+      const seen = new Set();
+      const add = name => {
+        const clean = String(name || "").trim().replace(/\s+/g, " ");
+        const key = clean.toLowerCase();
+        if (!clean || seen.has(key)) return;
+        seen.add(key);
+        names.push(clean);
+      };
+
+      (Array.isArray(data.participants) ? data.participants : fallback).forEach(add);
+      [data.predictions || {}, data.predictionArchive || {}].forEach(source => {
+        Object.entries(source).forEach(([name, entries]) => {
+          const hasActivePrediction = Object.values(entries || {}).some(pred => predictionIsActive(data, name, pred));
+          if (hasActivePrediction) add(name);
+        });
+      });
+      return names;
+    }
+
     function versionBefore(value, target) {
       const a = String(value || "0").split(".").map(part => Number(part) || 0);
       const b = String(target || "0").split(".").map(part => Number(part) || 0);
@@ -821,6 +842,7 @@
         ...base,
         ...parsed,
         meta: { ...base.meta, ...(parsed.meta || {}) },
+        participants: recoverParticipantNames(parsed, base.participants),
         games: hydrateGames(parsed.games, base.games),
         predictions: parsed.predictions || {},
         predictionArchive: parsed.predictionArchive || {},
@@ -1238,13 +1260,16 @@
         state.results.status = "online";
         state.results.lastCheck = payload.checkedAt || new Date().toISOString();
         state.results.lastApplied = updates.length;
-        state.results.error = conflicts.length ? `Conflitos: ${conflicts.slice(0, 2).join("; ")}` : "";
+        const noMatches = !Array.isArray(payload.matches) || payload.matches.length === 0;
+        state.results.error = conflicts.length
+          ? `Conflitos: ${conflicts.slice(0, 2).join("; ")}`
+          : (noMatches ? "API respondeu, mas nao retornou jogos para a Copa 2026 ainda." : "");
 
         if (updates.length) {
           saveData();
           if (!options.silent) toast(`${updates.length} resultado(s) atualizado(s)`);
         } else if (!options.silent) {
-          toast(conflicts.length ? "Ha conflitos para revisar" : "Nenhum resultado novo");
+          toast(conflicts.length ? "Ha conflitos para revisar" : (noMatches ? "API sem jogos retornados" : "Nenhum resultado novo"));
         }
         render();
       } catch (error) {
