@@ -292,3 +292,6 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+module.exports.fetchGeMatches = fetchGeMatches;
+module.exports.sendJson = sendJson;
