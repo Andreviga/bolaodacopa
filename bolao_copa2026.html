@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.11.2";
+    const APP_VERSION = "2026.06.25.1";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -838,7 +838,7 @@
     function normalizeStoredData(savedData = {}) {
       const parsed = migrateGeScheduleOrientation(savedData || {});
       const base = defaultData();
-      return cleanPredictionState(cleanPasswordState({
+      const normalized = cleanPredictionState(cleanPasswordState({
         ...base,
         ...parsed,
         meta: { ...base.meta, ...(parsed.meta || {}) },
@@ -851,6 +851,8 @@
         participantPasswordResets: parsed.participantPasswordResets || {},
         rules: mergeRules(parsed.rules)
       }));
+      updateDerivedTeamsFromResults(normalized);
+      return normalized;
     }
 
     function protectedStateSignature(data) {
@@ -1196,6 +1198,10 @@
     }
 
     function findLocalGameForApiMatch(match) {
+      if (match.localId) {
+        const byId = state.data.games.find(game => game.id === match.localId);
+        if (byId) return byId;
+      }
       const key = teamPairKey(match.homeTeam, match.awayTeam);
       const candidates = state.data.games.filter(game => teamPairKey(game.homeTeam, game.awayTeam) === key);
       if (!candidates.length) return null;
@@ -1206,8 +1212,25 @@
         .sort((a,b) => a.diff - b.diff)[0].game;
     }
 
-    function applyApiResults(matches, options = {}) {
+    function applyApiTeamNames(matches) {
       const updates = [];
+      (matches || []).filter(match => match.localId).forEach(match => {
+        const game = state.data.games.find(item => item.id === match.localId);
+        if (!game || game.result) return;
+        [
+          ["homeTeam", match.homeTeam],
+          ["awayTeam", match.awayTeam]
+        ].forEach(([teamKey, nextTeam]) => {
+          if (!nextTeam || isPlaceholderTeam(nextTeam) || game[teamKey] === nextTeam) return;
+          updates.push(`${game.id}: ${teamText(game[teamKey])} -> ${teamText(nextTeam)}`);
+          game[teamKey] = nextTeam;
+        });
+      });
+      return updates;
+    }
+
+    function applyApiResults(matches, options = {}) {
+      const updates = applyApiTeamNames(matches);
       const conflicts = [];
 
       matches.filter(match => finalResultStatus(match.statusShort)).forEach(match => {
@@ -1267,7 +1290,7 @@
 
         if (updates.length) {
           saveData();
-          if (!options.silent) toast(`${updates.length} resultado(s) atualizado(s)`);
+          if (!options.silent) toast(`${updates.length} atualizacao(oes) aplicada(s)`);
         } else if (!options.silent) {
           toast(conflicts.length ? "Ha conflitos para revisar" : (noMatches ? "API sem jogos retornados" : "Nenhum resultado novo"));
         }
@@ -1303,10 +1326,10 @@
       if (!winner) return null;
       return winner === game.homeTeam ? game.awayTeam : game.homeTeam;
     }
-    function groupQualifiedTeams() {
+    function groupQualifiedTeams(data = state.data) {
       const result = {};
       const groups = {};
-      state.data.games.filter(game => game.type === "group").forEach(game => {
+      (data.games || []).filter(game => game.type === "group").forEach(game => {
         groups[game.group] ||= [];
         groups[game.group].push(game);
       });
@@ -1353,11 +1376,12 @@
       if (match) return gameLoser(gameById.get(match[1]));
       return groupRanks[text] || null;
     }
-    function updateDerivedTeamsFromResults() {
-      const gameById = new Map(state.data.games.map(game => [game.id, game]));
-      const groupRanks = groupQualifiedTeams();
+    function updateDerivedTeamsFromResults(data = state.data) {
+      const games = data.games || [];
+      const gameById = new Map(games.map(game => [game.id, game]));
+      const groupRanks = groupQualifiedTeams(data);
       let changes = 0;
-      state.data.games.forEach(game => {
+      games.forEach(game => {
         if (game.type !== "knockout" || game.result) return;
         [["homeTeam", "sourceHomeTeam"], ["awayTeam", "sourceAwayTeam"]].forEach(([teamKey, sourceKey]) => {
           game[sourceKey] ||= game[teamKey];
