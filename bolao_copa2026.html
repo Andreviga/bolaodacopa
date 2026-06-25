@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.25.1";
+    const APP_VERSION = "2026.06.25.2";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -649,12 +649,23 @@
       return savedGames.map(game => {
         const base = baseById.get(game.id);
         const groupGame = base?.type === "group" || game.type === "group";
-        const refreshTeams = !!base && (groupGame || (!game.result && game.type === "knockout"));
+        const refreshTeam = teamKey => {
+          if (!base) return game[teamKey];
+          if (groupGame) return base[teamKey];
+          if (game.result || game.type !== "knockout") return game[teamKey];
+
+          const currentTeam = game[teamKey];
+          const baseTeam = base[teamKey];
+          if (!currentTeam) return baseTeam;
+          if (isPlaceholderTeam(currentTeam)) return baseTeam;
+          if (!isPlaceholderTeam(baseTeam) && currentTeam !== baseTeam) return baseTeam;
+          return currentTeam;
+        };
         return {
           ...game,
           datetime: base?.datetime || game.datetime,
-          homeTeam: refreshTeams ? base.homeTeam : game.homeTeam,
-          awayTeam: refreshTeams ? base.awayTeam : game.awayTeam,
+          homeTeam: refreshTeam("homeTeam"),
+          awayTeam: refreshTeam("awayTeam"),
           sourceHomeTeam: base?.sourceHomeTeam || base?.homeTeam || game.sourceHomeTeam || game.homeTeam,
           sourceAwayTeam: base?.sourceAwayTeam || base?.awayTeam || game.sourceAwayTeam || game.awayTeam
         };
