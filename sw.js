@@ -1,4 +1,4 @@
-const CACHE_NAME = "bolao-copa-2026-v27";
+const CACHE_NAME = "bolao-copa-2026-v28";
 const APP_SHELL = [
   "./",
   "index.html",
@@ -31,7 +31,7 @@ self.addEventListener("fetch", event => {
   const url = new URL(request.url);
   const sameOrigin = url.origin === self.location.origin;
 
-  if (!sameOrigin || url.pathname.endsWith("/backend-config.js")) {
+  if (!sameOrigin || url.pathname.startsWith("/api/") || url.pathname.endsWith("/backend-config.js")) {
     event.respondWith(fetch(request, { cache: "no-store" }));
     return;
   }
