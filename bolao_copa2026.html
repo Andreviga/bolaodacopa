@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.25.6";
+    const APP_VERSION = "2026.06.25.7";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -556,11 +556,15 @@
       } catch {
         localConfig = {};
       }
-      const merged = {
-        ...DEFAULT_BACKEND_CONFIG,
-        ...(window.BOLAO_BACKEND || {})
-      };
+      const merged = { ...DEFAULT_BACKEND_CONFIG };
       Object.entries(localConfig || {}).forEach(([key, value]) => {
+        if (typeof value === "string") {
+          if (value.trim()) merged[key] = value.trim();
+          return;
+        }
+        if (value !== null && value !== undefined) merged[key] = value;
+      });
+      Object.entries(window.BOLAO_BACKEND || {}).forEach(([key, value]) => {
         if (typeof value === "string") {
           if (value.trim()) merged[key] = value.trim();
           return;
@@ -1207,6 +1211,7 @@
 
     function renderBackendOnly() {
       if (state.session?.role === "admin" && state.view === "admin") renderAdmin();
+      if (state.session && state.view === "dashboard") renderDashboard();
     }
 
     function renderAdminOnly() {
