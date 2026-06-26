@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.25.4";
+    const APP_VERSION = "2026.06.25.5";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -588,6 +588,16 @@
     function backendBaseUrl() {
       const cfg = state.backend.config;
       return `${cfg.url.replace(/\/$/, "")}/rest/v1/${encodeURIComponent(cfg.table)}`;
+    }
+
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
     }
 
     function toIso(date, time) {
@@ -1047,7 +1057,7 @@
     async function fetchBackendData() {
       const cfg = state.backend.config;
       const url = `${backendBaseUrl()}?id=eq.${encodeURIComponent(cfg.rowId)}&select=id,data,updated_at`;
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         headers: backendHeaders({ Accept: "application/json" }),
         cache: "no-store"
       });
@@ -1176,12 +1186,12 @@
           : mergeSharedProtection(state.data, normalizedRemote);
         touchData();
         persistStateData();
-        const response = await fetch(`${backendBaseUrl()}?on_conflict=id`, {
+        const response = await fetchWithTimeout(`${backendBaseUrl()}?on_conflict=id`, {
           method: "POST",
           headers: backendHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }),
           body: JSON.stringify({ id: cfg.rowId, data: state.data }),
           cache: "no-store"
-        });
+        }, 15000);
         if (!response.ok) throw new Error(`Supabase ${response.status}`);
         state.backend.status = "online";
         state.backend.error = "";
@@ -1219,9 +1229,7 @@
 
     function initResultAutoUpdate() {
       clearInterval(state.results.pollTimer);
-      if (shouldCheckResults()) {
-        setTimeout(() => updateResultsFromApi({ force: false, silent: true }), 2500);
-      }
+      setTimeout(() => updateResultsFromApi({ force: false, silent: true }), 2500);
       state.results.pollTimer = setInterval(() => {
         if (shouldCheckResults()) updateResultsFromApi({ force: false, silent: true });
       }, 30 * 60 * 1000);
@@ -1307,7 +1315,7 @@
       renderAdminOnly();
 
       try {
-        const response = await fetch("api/results", { cache: "no-store" });
+        const response = await fetchWithTimeout("api/results", { cache: "no-store" });
         const payload = await response.json();
         if (!response.ok || !payload.ok) {
           throw new Error(payload.message || payload.error || `API ${response.status}`);
