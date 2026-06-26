@@ -7,7 +7,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "sb_publishable_x2IRZsjc6rBglzY9lOQ4vQ_xAyTN7DT";
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || "bolao_state";
 const SUPABASE_ROW_ID = process.env.SUPABASE_ROW_ID || "copa2026-familia";
-const SYNC_VERSION = "2026.06.25.8";
+const SYNC_VERSION = "2026.06.25.9";
 const FINAL_STATUSES = new Set(["FT", "AET", "PEN"]);
 
 function countNested(obj) {

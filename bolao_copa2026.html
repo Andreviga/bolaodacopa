@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.25.8";
+    const APP_VERSION = "2026.06.25.9";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -1746,11 +1746,11 @@
       return { points, exact: exact ? 1 : 0, correct };
     }
 
-    function scores() {
-      return state.data.participants.map(name => {
+    function scores(data = state.data) {
+      return data.participants.map(name => {
         const row = { name, total: 0, exact: 0, correct: 0, made: 0 };
-        state.data.games.forEach(game => {
-          const pred = getPred(name, game.id);
+        data.games.forEach(game => {
+          const pred = data.predictions?.[name]?.[game.id] || null;
           if (pred) row.made += 1;
           const s = scorePrediction(game, pred);
           row.total += s.points;
@@ -2323,6 +2323,7 @@
           ${rulesPanelHtml()}
           <div class="panel">
             <h2>Resultado real</h2>
+            <p class="mini">Confira a previa antes de salvar. Resultado confirmado recalcula ranking e pode atualizar o mata-mata.</p>
             <select id="adminGame" onchange="fillAdminGame()">${options}</select>
             <div class="form-row">
               <input id="adminHome" placeholder="Mandante">
@@ -2337,9 +2338,11 @@
               <select id="advancedTeam"></select>
             </div>
             <div class="actions">
+              <button onclick="previewResultImpact()">Previa antes de salvar</button>
               <button class="success" onclick="saveResult()">Salvar resultado</button>
               <button onclick="clearResult()">Limpar resultado</button>
             </div>
+            <div id="resultPreview" class="mini" style="margin-top:12px"></div>
           </div>
           <div class="panel">
             <h2>Ferramentas</h2>
@@ -2368,45 +2371,120 @@
       document.getElementById("wentOvertime").value = String(!!game.wentOvertime);
       document.getElementById("advancedTeam").innerHTML = `<option value="${escapeHtml(game.homeTeam)}">${escapeHtml(teamText(game.homeTeam))}</option><option value="${escapeHtml(game.awayTeam)}">${escapeHtml(teamText(game.awayTeam))}</option>`;
       document.getElementById("advancedTeam").value = game.advancedTeam || game.homeTeam;
+      const preview = document.getElementById("resultPreview");
+      if (preview) preview.innerHTML = "";
     }
 
-    function saveResult() {
+    function readAdminResultDraft() {
       const game = state.data.games.find(g => g.id === document.getElementById("adminGame").value);
+      if (!game) return { error: "Escolha um jogo valido" };
       const homeTeam = document.getElementById("adminHome").value.trim();
       const awayTeam = document.getElementById("adminAway").value.trim();
-      if (!homeTeam || !awayTeam) return toast("Informe os dois times antes de salvar");
+      if (!homeTeam || !awayTeam) return { error: "Informe os dois times antes de salvar" };
       const home = document.getElementById("resHome").value;
       const away = document.getElementById("resAway").value;
       const homeScore = Number(home);
       const awayScore = Number(away);
-      if (home === "" || away === "") return toast(`Voce esqueceu de colocar o placar de ${teamText(homeTeam)} x ${teamText(awayTeam)}`);
-      if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) return toast("Resultado precisa ter gols inteiros e maiores ou iguais a zero");
-      if (homeScore > 30 || awayScore > 30) return toast("Confira o resultado: gols muito altos parecem erro");
-      if (new Date(game.datetime).getTime() > Date.now()) {
-        const ok = confirm("Este jogo ainda nao aconteceu. Quer salvar o resultado mesmo assim?");
-        if (!ok) return;
-      }
+      if (home === "" || away === "") return { error: `Voce esqueceu de colocar o placar de ${teamText(homeTeam)} x ${teamText(awayTeam)}` };
+      if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) return { error: "Resultado precisa ter gols inteiros e maiores ou iguais a zero" };
+      if (homeScore > 30 || awayScore > 30) return { error: "Confira o resultado: gols muito altos parecem erro" };
       let wentOvertime = false;
       let advancedTeam = null;
       if (game.type === "knockout") {
         wentOvertime = document.getElementById("wentOvertime").value === "true";
-        if (homeScore === awayScore && !wentOvertime) return toast("Se empatou nos 90 min, marque que foi para prorrogacao");
-        if (homeScore !== awayScore && wentOvertime) return toast("Prorrogacao so acontece se os 90 min terminaram empatados");
+        if (homeScore === awayScore && !wentOvertime) return { error: "Se empatou nos 90 min, marque que foi para prorrogacao" };
+        if (homeScore !== awayScore && wentOvertime) return { error: "Prorrogacao so acontece se os 90 min terminaram empatados" };
         advancedTeam = document.getElementById("advancedTeam").value;
         if (![homeTeam, awayTeam].includes(advancedTeam)) {
           if (homeScore !== awayScore) advancedTeam = homeScore > awayScore ? homeTeam : awayTeam;
-          else return toast("Escolha quem passou depois de atualizar os times");
+          else return { error: "Escolha quem passou depois de atualizar os times" };
         }
       }
-      game.homeTeam = homeTeam;
-      game.awayTeam = awayTeam;
-      game.result = { home: homeScore, away: awayScore };
+      return { game, homeTeam, awayTeam, homeScore, awayScore, wentOvertime, advancedTeam };
+    }
+
+    function applyResultDraftToData(data, draft) {
+      const game = data.games.find(item => item.id === draft.game.id);
+      if (!game) return 0;
+      game.homeTeam = draft.homeTeam;
+      game.awayTeam = draft.awayTeam;
+      game.result = { home: draft.homeScore, away: draft.awayScore };
       game.status = "finished";
       if (game.type === "knockout") {
-        game.wentOvertime = wentOvertime;
-        game.advancedTeam = advancedTeam;
+        game.wentOvertime = draft.wentOvertime;
+        game.advancedTeam = draft.advancedTeam;
       }
-      const derivedUpdates = updateDerivedTeamsFromResults();
+      return updateDerivedTeamsFromResults(data);
+    }
+
+    function resultImpactSummary(draft) {
+      const beforeRows = scores();
+      const simulated = JSON.parse(JSON.stringify(state.data));
+      const derivedUpdates = applyResultDraftToData(simulated, draft);
+      const afterRows = scores(simulated);
+      const beforeByName = Object.fromEntries(beforeRows.map((row, index) => [row.name, { ...row, pos: index + 1 }]));
+      const changedRows = afterRows.map((row, index) => {
+        const before = beforeByName[row.name] || { total: 0, pos: index + 1 };
+        return { ...row, pos: index + 1, deltaPoints: row.total - before.total, deltaPos: before.pos - (index + 1) };
+      }).filter(row => row.deltaPoints || row.deltaPos);
+      const highlights = changedRows
+        .sort((a, b) => Math.abs(b.deltaPoints) - Math.abs(a.deltaPoints) || Math.abs(b.deltaPos) - Math.abs(a.deltaPos))
+        .slice(0, 5);
+      const predictionCount = state.data.participants.filter(name => getPred(name, draft.game.id)).length;
+      const previous = draft.game.result
+        ? `${draft.game.result.home} x ${draft.game.result.away}${draft.game.advancedTeam ? `, passou ${teamText(draft.game.advancedTeam)}` : ""}`
+        : "sem resultado";
+      const next = `${draft.homeScore} x ${draft.awayScore}${draft.advancedTeam ? `, passa ${teamText(draft.advancedTeam)}` : ""}`;
+      return {
+        previous,
+        next,
+        predictionCount,
+        derivedUpdates,
+        highlights,
+        simulated
+      };
+    }
+
+    function resultImpactText(draft, impact) {
+      const futureWarning = new Date(draft.game.datetime).getTime() > Date.now()
+        ? "\nATENCAO: este jogo ainda nao aconteceu."
+        : "";
+      const rankLines = impact.highlights.length
+        ? impact.highlights.map(row => `- ${row.name}: ${row.deltaPoints >= 0 ? "+" : ""}${row.deltaPoints} pts${row.deltaPos ? `, ${row.deltaPos > 0 ? "sobe" : "cai"} ${Math.abs(row.deltaPos)} pos.` : ""}`).join("\n")
+        : "- Ranking nao muda com este resultado.";
+      return [
+        `Jogo: ${draft.game.id} - ${teamText(draft.homeTeam)} x ${teamText(draft.awayTeam)}`,
+        `Atual: ${impact.previous}`,
+        `Novo: ${impact.next}`,
+        `Palpites afetados: ${impact.predictionCount}`,
+        `Vagas futuras atualizadas: ${impact.derivedUpdates}`,
+        "",
+        "Impacto no ranking:",
+        rankLines,
+        futureWarning,
+        "",
+        "Confira com calma antes de confirmar."
+      ].filter(Boolean).join("\n");
+    }
+
+    function previewResultImpact() {
+      const draft = readAdminResultDraft();
+      if (draft.error) return toast(draft.error);
+      const impact = resultImpactSummary(draft);
+      const preview = document.getElementById("resultPreview");
+      if (preview) {
+        const lines = resultImpactText(draft, impact).split("\n").map(line => escapeHtml(line)).join("<br>");
+        preview.innerHTML = `<div class="alert-item alert-warn"><div class="alert-icon">!</div><div><strong>Previa do resultado</strong><span>${lines}</span></div></div>`;
+      }
+    }
+
+    function saveResult() {
+      const draft = readAdminResultDraft();
+      if (draft.error) return toast(draft.error);
+      const impact = resultImpactSummary(draft);
+      const ok = confirm(`${resultImpactText(draft, impact)}\n\nConfirmar e gravar este resultado?`);
+      if (!ok) return;
+      const derivedUpdates = applyResultDraftToData(state.data, draft);
       saveData();
       toast(derivedUpdates ? "Resultado salvo e mata-mata atualizado" : "Resultado salvo");
       render();
