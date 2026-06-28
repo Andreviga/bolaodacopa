@@ -7,7 +7,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "sb_publishable_x2IRZsjc6rBglzY9lOQ4vQ_xAyTN7DT";
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || "bolao_state";
 const SUPABASE_ROW_ID = process.env.SUPABASE_ROW_ID || "copa2026-familia";
-const SYNC_VERSION = "2026.06.28.1";
+const SYNC_VERSION = "2026.06.28.4";
 const FINAL_STATUSES = new Set(["FT", "AET", "PEN"]);
 
 function countNested(obj) {
@@ -210,8 +210,8 @@ function applyTeamNames(matches, data) {
   return updates;
 }
 
-function applyResults(matches, data) {
-  const updates = [];
+function resultsForAdminReview(matches, data) {
+  const pending = [];
   const conflicts = [];
 
   (matches || []).filter(match => FINAL_STATUSES.has(match.statusShort)).forEach(match => {
@@ -228,31 +228,30 @@ function applyResults(matches, data) {
     }
 
     if (!existing) {
-      game.result = nextResult;
-      game.status = "finished";
-      if (game.type === "knockout") {
-        game.wentOvertime = !!match.wentOvertime;
-        if (match.winner) {
-          game.advancedTeam = resultCanonicalTeam(match.winner) === resultCanonicalTeam(game.homeTeam)
-            ? game.homeTeam
-            : game.awayTeam;
-        }
-      }
-      updates.push(`${game.id}: ${game.homeTeam} ${nextResult.home} x ${nextResult.away} ${game.awayTeam}`);
+      pending.push({
+        id: game.id,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        home: nextResult.home,
+        away: nextResult.away,
+        winner: match.winner || null,
+        wentOvertime: !!match.wentOvertime
+      });
     }
   });
 
-  return { updates, conflicts };
+  return { pending, conflicts };
 }
 
 function applyMatches(matches, data) {
   const teamUpdates = applyTeamNames(matches, data);
-  const { updates: resultUpdates, conflicts } = applyResults(matches, data);
+  const resultReview = resultsForAdminReview(matches, data);
   const derivedUpdates = updateDerivedTeamsFromResults(data);
 
   return {
-    updates: [...teamUpdates, ...resultUpdates, ...derivedUpdates],
-    conflicts
+    updates: [...teamUpdates, ...derivedUpdates],
+    conflicts: resultReview.conflicts,
+    pendingResults: resultReview.pending
   };
 }
 
@@ -298,7 +297,7 @@ module.exports = async function handler(req, res) {
     const before = protectedCounts(data);
 
     const oldUpdatedAt = data.meta?.updatedAt || "";
-    const { updates, conflicts } = applyMatches(matches, data);
+    const { updates, conflicts, pendingResults } = applyMatches(matches, data);
 
     if (!updates.length) {
       sendJson(res, 200, {
@@ -306,8 +305,10 @@ module.exports = async function handler(req, res) {
         changed: false,
         provider: "ge.globo.com",
         matchCount: matches.length,
+        mode: "admin-review",
         updates,
         conflicts,
+        pendingResults,
         protected: before
       });
       return;
@@ -328,8 +329,10 @@ module.exports = async function handler(req, res) {
       changed: true,
       provider: "ge.globo.com",
       matchCount: matches.length,
+      mode: "admin-review",
       updates,
       conflicts,
+      pendingResults,
       protected: protectedAfter
     });
   } catch (error) {

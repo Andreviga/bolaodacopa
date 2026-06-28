@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.28.3";
+    const APP_VERSION = "2026.06.28.4";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -544,6 +544,7 @@
         error: "",
         lastCheck: "",
         lastApplied: 0,
+        pendingReview: [],
         pollTimer: null
       }
     };
@@ -1237,10 +1238,7 @@
 
     function initResultAutoUpdate() {
       clearInterval(state.results.pollTimer);
-      setTimeout(() => updateResultsFromApi({ force: false, silent: true }), 2500);
-      state.results.pollTimer = setInterval(() => {
-        if (shouldCheckResults()) updateResultsFromApi({ force: false, silent: true });
-      }, 30 * 60 * 1000);
+      state.results.pollTimer = null;
     }
 
     function finalResultStatus(status) {
@@ -1279,8 +1277,8 @@
       return updates;
     }
 
-    function applyApiResults(matches, options = {}) {
-      const updates = applyApiTeamNames(matches);
+    function apiResultsForAdminReview(matches) {
+      const pending = [];
       const conflicts = [];
 
       matches.filter(match => finalResultStatus(match.statusShort)).forEach(match => {
@@ -1291,30 +1289,30 @@
         const nextResult = { home: match.home, away: match.away };
         const existing = game.result;
         const differs = existing && (existing.home !== nextResult.home || existing.away !== nextResult.away);
-        if (differs && !options.force) {
+        if (differs) {
           conflicts.push(`${game.id}: local ${existing.home}x${existing.away}, API ${nextResult.home}x${nextResult.away}`);
           return;
         }
 
-        if (!existing || differs) {
-          game.result = nextResult;
-          game.status = "finished";
-          if (game.type === "knockout") {
-            game.wentOvertime = !!match.wentOvertime;
-            game.advancedTeam = match.winner ? (resultCanonicalTeam(match.winner) === resultCanonicalTeam(game.homeTeam) ? game.homeTeam : game.awayTeam) : game.advancedTeam;
-          }
-          updates.push(`${game.id} ${teamText(game.homeTeam)} ${nextResult.home} x ${nextResult.away} ${teamText(game.awayTeam)}`);
+        if (!existing) {
+          pending.push({
+            id: game.id,
+            homeTeam: game.homeTeam,
+            awayTeam: game.awayTeam,
+            home: nextResult.home,
+            away: nextResult.away,
+            winner: match.winner || null,
+            wentOvertime: !!match.wentOvertime
+          });
         }
       });
 
-      const derivedUpdates = updates.length ? updateDerivedTeamsFromResults() : 0;
-      if (derivedUpdates) updates.push(`${derivedUpdates} vaga(s) futura(s) atualizada(s)`);
-      return { updates, conflicts };
+      return { pending, conflicts };
     }
 
     async function updateResultsFromApi(options = {}) {
-      if (!options.silent && options.force) {
-        const ok = confirm("Buscar resultados oficiais pela API e sobrescrever placares divergentes?");
+      if (!options.silent) {
+        const ok = confirm("Conferir resultados da API? Nada sera gravado automaticamente; depois preencha e confirme no Resultado real.");
         if (!ok) return;
       }
 
@@ -1329,21 +1327,17 @@
           throw new Error(payload.message || payload.error || `API ${response.status}`);
         }
 
-        const { updates, conflicts } = applyApiResults(payload.matches || [], options);
+        const { pending, conflicts } = apiResultsForAdminReview(payload.matches || []);
         state.results.status = "online";
         state.results.lastCheck = payload.checkedAt || new Date().toISOString();
-        state.results.lastApplied = updates.length;
+        state.results.lastApplied = 0;
+        state.results.pendingReview = pending;
         const noMatches = !Array.isArray(payload.matches) || payload.matches.length === 0;
         state.results.error = conflicts.length
           ? `Conflitos: ${conflicts.slice(0, 2).join("; ")}`
-          : (noMatches ? "API respondeu, mas nao retornou jogos para a Copa 2026 ainda." : "");
+          : (pending.length ? `${pending.length} resultado(s) para conferir no Admin.` : (noMatches ? "API respondeu, mas nao retornou jogos para a Copa 2026 ainda." : ""));
 
-        if (updates.length) {
-          saveData();
-          if (!options.silent) toast(`${updates.length} atualizacao(oes) aplicada(s)`);
-        } else if (!options.silent) {
-          toast(conflicts.length ? "Ha conflitos para revisar" : (noMatches ? "API sem jogos retornados" : "Nenhum resultado novo"));
-        }
+        if (!options.silent) toast(pending.length ? `${pending.length} resultado(s) para conferir` : (conflicts.length ? "Ha conflitos para revisar" : (noMatches ? "API sem jogos retornados" : "Nenhum resultado novo")));
         render();
       } catch (error) {
         state.results.status = "offline";
@@ -2297,26 +2291,34 @@
     function resultsStatusLabel() {
       const labels = {
         idle: "Ainda nao verificado.",
-        checking: "Buscando resultados na API...",
-        online: "API de resultados conectada.",
+        checking: "Buscando resultados na API para conferencia...",
+        online: "API conectada em modo conferencia.",
         offline: `Indisponivel: ${state.results.error || "configure APISPORTS_KEY na Vercel"}`
       };
       const last = state.results.lastCheck ? ` Ultima busca: ${dateLabel(state.results.lastCheck)}.` : "";
-      const applied = state.results.lastApplied ? ` Ultima atualizacao: ${state.results.lastApplied} resultado(s).` : "";
-      return `${labels[state.results.status] || labels.idle}${last}${applied}`;
+      const pending = state.results.pendingReview?.length ? ` ${state.results.pendingReview.length} resultado(s) aguardando conferencia do admin.` : "";
+      return `${labels[state.results.status] || labels.idle}${last}${pending}`;
     }
 
     function resultsPanelHtml() {
+      const pending = state.results.pendingReview || [];
+      const pendingRows = pending.slice(0, 8).map(item => `
+        <tr>
+          <td>${escapeHtml(item.id)}</td>
+          <td>${escapeHtml(teamText(item.homeTeam))} ${item.home} x ${item.away} ${escapeHtml(teamText(item.awayTeam))}</td>
+          <td>${item.winner ? escapeHtml(teamText(item.winner)) : ""}</td>
+        </tr>
+      `).join("");
       return `
         <div class="panel">
-          <h2>Resultados automaticos</h2>
+          <h2>Conferencia de resultados</h2>
           <p class="mini">${escapeHtml(resultsStatusLabel())}</p>
           ${state.results.error ? `<p class="mini">${escapeHtml(state.results.error)}</p>` : ""}
           <div class="actions">
-            <button class="success" onclick="updateResultsFromApi({force:false})">Atualizar resultados</button>
-            <button onclick="updateResultsFromApi({force:true})">Forcar sobrescrita</button>
+            <button class="success" onclick="updateResultsFromApi()">Conferir API</button>
           </div>
-          <p class="mini">Usa a rota Vercel /api/results. Configure APISPORTS_KEY para ativar.</p>
+          ${pendingRows ? `<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Jogo</th><th>API</th><th>Passou</th></tr></thead><tbody>${pendingRows}</tbody></table></div>` : ""}
+          <p class="mini">A API agora e apenas para conferencia. Para pontuar, preencha o placar em "Resultado real", confira a previa e confirme.</p>
         </div>`;
     }
 
