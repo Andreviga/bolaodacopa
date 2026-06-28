@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.28.4";
+    const APP_VERSION = "2026.06.28.5";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -645,8 +645,8 @@
         summary: [
           { id: "deadline", title: "Palpite fecha 1h antes", description: "Depois do prazo, o jogo fica bloqueado e quem nao palpitou recebe 0 ponto." },
           { id: "groups", title: "Fase de grupos", description: "Placar exato, resultado com total de gols e resultado correto valem pontos diferentes." },
-          { id: "knockout", title: "Mata-mata", description: "O palpite vale para os 90 minutos + acrescimos; prorrogacao so conta se houver tempo extra depois de empate." },
-          { id: "stoppage", title: "Gols nos acrescimos", description: "Opcional: se admin preencher os gols reais dos acrescimos, quem acertar esses gols ganha bonus." },
+          { id: "knockout", title: "Mata-mata", description: "O palpite vale para o placar final informado; prorrogacao so conta se houver tempo extra depois de empate." },
+          { id: "stoppage", title: "Gols na prorrogacao", description: "Opcional: se admin preencher os gols reais da prorrogacao, quem acertar esses gols ganha bonus." },
           { id: "ranking", title: "Ranking", description: "Empate no ranking desempata por placares exatos, acertos e ordem alfabetica." }
         ]
       };
@@ -699,7 +699,7 @@
       { key: "knockoutDrawAdvanced", label: "Mata-mata: empate + quem passa" },
       { key: "knockoutAdvanced", label: "Mata-mata: so quem passa" },
       { key: "overtimeBonus", label: "Bonus: acertou prorrogacao" },
-      { key: "stoppageExactBonus", label: "Bonus: gols dos acrescimos exatos" }
+      { key: "stoppageExactBonus", label: "Bonus: gols da prorrogacao exatos" }
     ];
 
     function defaultData() {
@@ -1362,7 +1362,7 @@
       return value && Number.isInteger(value.home) && Number.isInteger(value.away);
     }
     function stoppageSuffix(value) {
-      return hasStoppageScore(value) ? `, acrescimos ${value.home} x ${value.away}` : "";
+      return hasStoppageScore(value) ? `, prorrogacao ${value.home} x ${value.away}` : "";
     }
     function stoppageInputValue(value, side) {
       return hasStoppageScore(value) ? value[side] : "";
@@ -1371,14 +1371,14 @@
       const homeRaw = (document.getElementById(homeId)?.value || "").trim();
       const awayRaw = (document.getElementById(awayId)?.value || "").trim();
       if (homeRaw === "" && awayRaw === "") return { stoppage: null };
-      if (homeRaw === "" || awayRaw === "") return { error: "Preencha os dois gols dos acrescimos ou deixe os dois em branco" };
+      if (homeRaw === "" || awayRaw === "") return { error: "Preencha os dois gols da prorrogacao ou deixe os dois em branco" };
       const home = Number(homeRaw);
       const away = Number(awayRaw);
       if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) {
-        return { error: "Gols dos acrescimos precisam ser inteiros e maiores ou iguais a zero" };
+        return { error: "Gols da prorrogacao precisam ser inteiros e maiores ou iguais a zero" };
       }
       if (home > finalHome || away > finalAway) {
-        return { error: "Gols dos acrescimos nao podem ser maiores que o placar final" };
+        return { error: "Gols da prorrogacao nao podem ser maiores que o placar final" };
       }
       return { stoppage: { home, away } };
     }
@@ -2146,16 +2146,16 @@
               </div>
             </div>
           </div>
-          <p class="mini">Placar final dos 90 min + acrescimos. Opcionalmente, detalhe abaixo quantos gols sairam nos acrescimos.</p>
+          <p class="mini">Placar final do jogo. Opcionalmente, detalhe abaixo quantos gols sairam na prorrogacao.</p>
           <div class="form-row">
-            <label>Acrescimos ${escapeHtml(teamText(game.homeTeam))}
+            <label>Prorrogacao ${escapeHtml(teamText(game.homeTeam))}
               <input id="predStoppageHome" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "home")}" ${locked?"disabled":""}>
             </label>
-            <label>Acrescimos ${escapeHtml(teamText(game.awayTeam))}
+            <label>Prorrogacao ${escapeHtml(teamText(game.awayTeam))}
               <input id="predStoppageAway" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "away")}" ${locked?"disabled":""}>
             </label>
           </div>
-          <p class="mini">Exemplo: jogo 1 x 2 com gol do visitante nos acrescimos: placar final 1 x 2 e acrescimos 0 x 1.</p>
+          <p class="mini">Exemplo: jogo 1 x 2 com gol do visitante na prorrogacao: placar final 1 x 2 e prorrogacao 0 x 1.</p>
           ${game.type === "knockout" ? `
             <div class="form-row">
               <label>Vai para prorrogacao?
@@ -2171,7 +2171,7 @@
                 </select>
               </label>
             </div>` : `<p class="mini">Fase de grupos: empate e permitido.</p>`}
-          ${game.type === "knockout" ? `<p class="mini">Acrescimos fazem parte dos 90 min. Marque prorrogacao somente se o jogo empatar no tempo normal e for para tempo extra.</p>` : ""}
+          ${game.type === "knockout" ? `<p class="mini">Marque prorrogacao somente se o jogo empatar no tempo normal e for para tempo extra.</p>` : ""}
           <button class="success" style="width:100%" ${locked?"disabled":""} onclick="savePrediction('${game.id}')">Confirmar palpite</button>
         </div>`;
     }
@@ -2199,8 +2199,8 @@
       };
       if (stoppageDraft.stoppage) pred.stoppage = stoppageDraft.stoppage;
       if (game.type === "knockout") {
-        if (home === away && !pred.overtime) return toast("Se o mata-mata empatar nos 90 min + acrescimos, marque prorrogacao: Sim");
-        if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min + acrescimos terminarem empatados");
+        if (home === away && !pred.overtime) return toast("Se o mata-mata empatar no tempo normal, marque prorrogacao: Sim");
+        if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se o tempo normal terminar empatado");
         if (home !== away) pred.advancedTeam = home > away ? game.homeTeam : game.awayTeam;
         if (!pred.advancedTeam) return toast("Escolha quem passa no mata-mata");
       }
@@ -2386,7 +2386,7 @@
           ${rulesPanelHtml()}
           <div class="panel">
             <h2>Resultado real</h2>
-            <p class="mini">Confira a previa antes de salvar. Use o placar dos 90 min + acrescimos; prorrogacao e so para tempo extra depois de empate.</p>
+            <p class="mini">Confira a previa antes de salvar. Use o placar final do jogo; prorrogacao e so para tempo extra depois de empate.</p>
             <select id="adminGame" onchange="fillAdminGame()">${options}</select>
             <div class="form-row">
               <input id="adminHome" placeholder="Mandante">
@@ -2396,10 +2396,10 @@
               <input id="resHome" type="number" min="0" placeholder="Gols mandante">
               <input id="resAway" type="number" min="0" placeholder="Gols visitante">
             </div>
-            <p class="mini">Opcional: gols que sairam nos acrescimos, dentro do placar final acima.</p>
+            <p class="mini">Opcional: gols que sairam na prorrogacao, dentro do placar final acima.</p>
             <div class="form-row">
-              <input id="resStoppageHome" type="number" min="0" placeholder="Acrescimos mandante">
-              <input id="resStoppageAway" type="number" min="0" placeholder="Acrescimos visitante">
+              <input id="resStoppageHome" type="number" min="0" placeholder="Prorrogacao mandante">
+              <input id="resStoppageAway" type="number" min="0" placeholder="Prorrogacao visitante">
             </div>
             <div class="form-row">
               <select id="wentOvertime"><option value="false">Nao foi para prorrogacao</option><option value="true">Foi para prorrogacao</option></select>
@@ -2464,8 +2464,8 @@
       let advancedTeam = null;
       if (game.type === "knockout") {
         wentOvertime = document.getElementById("wentOvertime").value === "true";
-        if (homeScore === awayScore && !wentOvertime) return { error: "Se empatou nos 90 min + acrescimos, marque que foi para prorrogacao" };
-        if (homeScore !== awayScore && wentOvertime) return { error: "Prorrogacao so acontece se os 90 min + acrescimos terminaram empatados" };
+        if (homeScore === awayScore && !wentOvertime) return { error: "Se empatou no tempo normal, marque que foi para prorrogacao" };
+        if (homeScore !== awayScore && wentOvertime) return { error: "Prorrogacao so acontece se o tempo normal terminou empatado" };
         advancedTeam = homeScore !== awayScore
           ? (homeScore > awayScore ? homeTeam : awayTeam)
           : document.getElementById("advancedTeam").value;
