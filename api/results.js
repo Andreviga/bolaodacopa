@@ -48,8 +48,10 @@ function normalizeFixture(item) {
   const score = finalScore(item);
   const statusShort = status.short || "";
   const wentOvertime = ["AET", "PEN"].includes(statusShort) ||
-    item.score?.extratime?.home !== null ||
-    item.score?.penalty?.home !== null;
+    Number.isInteger(item.score?.extratime?.home) ||
+    Number.isInteger(item.score?.extratime?.away) ||
+    Number.isInteger(item.score?.penalty?.home) ||
+    Number.isInteger(item.score?.penalty?.away);
   const winner = item.teams?.home?.winner ? item.teams.home.name :
     item.teams?.away?.winner ? item.teams.away.name : null;
 

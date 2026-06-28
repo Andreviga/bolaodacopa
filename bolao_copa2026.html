@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.28.1";
+    const APP_VERSION = "2026.06.28.2";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -643,7 +643,7 @@
         summary: [
           { id: "deadline", title: "Palpite fecha 1h antes", description: "Depois do prazo, o jogo fica bloqueado e quem nao palpitou recebe 0 ponto." },
           { id: "groups", title: "Fase de grupos", description: "Placar exato, resultado com total de gols e resultado correto valem pontos diferentes." },
-          { id: "knockout", title: "Mata-mata", description: "O palpite vale para os 90 minutos; tambem marque prorrogacao e quem passa." },
+          { id: "knockout", title: "Mata-mata", description: "O palpite vale para os 90 minutos + acrescimos; prorrogacao so conta se houver tempo extra depois de empate." },
           { id: "ranking", title: "Ranking", description: "Empate no ranking desempata por placares exatos, acertos e ordem alfabetica." }
         ]
       };
@@ -2132,6 +2132,7 @@
                 </select>
               </label>
             </div>` : `<p class="mini">Fase de grupos: empate e permitido.</p>`}
+          ${game.type === "knockout" ? `<p class="mini">Acrescimos fazem parte dos 90 min. Marque prorrogacao somente se o jogo empatar no tempo normal e for para tempo extra.</p>` : ""}
           <button class="success" style="width:100%" ${locked?"disabled":""} onclick="savePrediction('${game.id}')">Confirmar palpite</button>
         </div>`;
     }
@@ -2156,8 +2157,8 @@
         submittedAt: new Date().toISOString()
       };
       if (game.type === "knockout") {
-        if (home === away && !pred.overtime) return toast("Se o mata-mata empatar nos 90 min, marque prorrogacao: Sim");
-        if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min terminarem empatados");
+        if (home === away && !pred.overtime) return toast("Se o mata-mata empatar nos 90 min + acrescimos, marque prorrogacao: Sim");
+        if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min + acrescimos terminarem empatados");
         if (home !== away) pred.advancedTeam = home > away ? game.homeTeam : game.awayTeam;
         if (!pred.advancedTeam) return toast("Escolha quem passa no mata-mata");
       }
@@ -2335,7 +2336,7 @@
           ${rulesPanelHtml()}
           <div class="panel">
             <h2>Resultado real</h2>
-            <p class="mini">Confira a previa antes de salvar. Resultado confirmado recalcula ranking e pode atualizar o mata-mata.</p>
+            <p class="mini">Confira a previa antes de salvar. Use o placar dos 90 min + acrescimos; prorrogacao e so para tempo extra depois de empate.</p>
             <select id="adminGame" onchange="fillAdminGame()">${options}</select>
             <div class="form-row">
               <input id="adminHome" placeholder="Mandante">
@@ -2404,8 +2405,8 @@
       let advancedTeam = null;
       if (game.type === "knockout") {
         wentOvertime = document.getElementById("wentOvertime").value === "true";
-        if (homeScore === awayScore && !wentOvertime) return { error: "Se empatou nos 90 min, marque que foi para prorrogacao" };
-        if (homeScore !== awayScore && wentOvertime) return { error: "Prorrogacao so acontece se os 90 min terminaram empatados" };
+        if (homeScore === awayScore && !wentOvertime) return { error: "Se empatou nos 90 min + acrescimos, marque que foi para prorrogacao" };
+        if (homeScore !== awayScore && wentOvertime) return { error: "Prorrogacao so acontece se os 90 min + acrescimos terminaram empatados" };
         advancedTeam = homeScore !== awayScore
           ? (homeScore > awayScore ? homeTeam : awayTeam)
           : document.getElementById("advancedTeam").value;
