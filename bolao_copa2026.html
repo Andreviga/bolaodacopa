@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.28.2";
+    const APP_VERSION = "2026.06.28.3";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -638,12 +638,14 @@
           knockoutResult: 6,
           knockoutDrawAdvanced: 4,
           knockoutAdvanced: 2,
-          overtimeBonus: 2
+          overtimeBonus: 2,
+          stoppageExactBonus: 3
         },
         summary: [
           { id: "deadline", title: "Palpite fecha 1h antes", description: "Depois do prazo, o jogo fica bloqueado e quem nao palpitou recebe 0 ponto." },
           { id: "groups", title: "Fase de grupos", description: "Placar exato, resultado com total de gols e resultado correto valem pontos diferentes." },
           { id: "knockout", title: "Mata-mata", description: "O palpite vale para os 90 minutos + acrescimos; prorrogacao so conta se houver tempo extra depois de empate." },
+          { id: "stoppage", title: "Gols nos acrescimos", description: "Opcional: se admin preencher os gols reais dos acrescimos, quem acertar esses gols ganha bonus." },
           { id: "ranking", title: "Ranking", description: "Empate no ranking desempata por placares exatos, acertos e ordem alfabetica." }
         ]
       };
@@ -695,7 +697,8 @@
       { key: "knockoutResult", label: "Mata-mata: resultado nos 90 min" },
       { key: "knockoutDrawAdvanced", label: "Mata-mata: empate + quem passa" },
       { key: "knockoutAdvanced", label: "Mata-mata: so quem passa" },
-      { key: "overtimeBonus", label: "Bonus: acertou prorrogacao" }
+      { key: "overtimeBonus", label: "Bonus: acertou prorrogacao" },
+      { key: "stoppageExactBonus", label: "Bonus: gols dos acrescimos exatos" }
     ];
 
     function defaultData() {
@@ -1361,6 +1364,30 @@
     function gameDeadline(game) { return new Date(game.datetime).getTime() - 60 * 60 * 1000; }
     function isLocked(game) { return Date.now() >= gameDeadline(game); }
     function getPred(user, gameId) { return state.data.predictions[user]?.[gameId] || null; }
+    function hasStoppageScore(value) {
+      return value && Number.isInteger(value.home) && Number.isInteger(value.away);
+    }
+    function stoppageSuffix(value) {
+      return hasStoppageScore(value) ? `, acrescimos ${value.home} x ${value.away}` : "";
+    }
+    function stoppageInputValue(value, side) {
+      return hasStoppageScore(value) ? value[side] : "";
+    }
+    function readOptionalStoppage(homeId, awayId, finalHome, finalAway) {
+      const homeRaw = (document.getElementById(homeId)?.value || "").trim();
+      const awayRaw = (document.getElementById(awayId)?.value || "").trim();
+      if (homeRaw === "" && awayRaw === "") return { stoppage: null };
+      if (homeRaw === "" || awayRaw === "") return { error: "Preencha os dois gols dos acrescimos ou deixe os dois em branco" };
+      const home = Number(homeRaw);
+      const away = Number(awayRaw);
+      if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) {
+        return { error: "Gols dos acrescimos precisam ser inteiros e maiores ou iguais a zero" };
+      }
+      if (home > finalHome || away > finalAway) {
+        return { error: "Gols dos acrescimos nao podem ser maiores que o placar final" };
+      }
+      return { stoppage: { home, away } };
+    }
     function predictedAdvancedTeam(game, pred) {
       if (!game || game.type !== "knockout" || !pred) return null;
       if (pred.home > pred.away) return game.homeTeam;
@@ -1750,6 +1777,14 @@
         if (realSign === predSign || advancedOk) correct = 1;
         if (pred.overtime === true && game.wentOvertime === true) points += Number(score.overtimeBonus) || 0;
       }
+      if (
+        hasStoppageScore(real.stoppage) &&
+        hasStoppageScore(pred.stoppage) &&
+        real.stoppage.home === pred.stoppage.home &&
+        real.stoppage.away === pred.stoppage.away
+      ) {
+        points += Number(score.stoppageExactBonus) || 0;
+      }
       return { points, exact: exact ? 1 : 0, correct };
     }
 
@@ -2066,8 +2101,8 @@
       const deadline = gameDeadline(game);
       const status = game.result ? ["good","Resultado lancado"] : locked ? ["bad","Prazo encerrado"] : pred ? ["good","Palpitado"] : ["warn","Pendente"];
       const predAdvanced = predictedAdvancedTeam(game, pred);
-      const predText = pred ? `Palpite: ${pred.home} x ${pred.away}${predAdvanced ? `, passa ${teamText(predAdvanced)}` : ""}` : "Sem palpite";
-      const resultText = game.result ? `Resultado: ${game.result.home} x ${game.result.away}${game.advancedTeam ? `, passou ${teamText(game.advancedTeam)}` : ""}` : `Prazo: ${dateLabel(new Date(deadline).toISOString())} (${timeLeft(deadline - Date.now())})`;
+      const predText = pred ? `Palpite: ${pred.home} x ${pred.away}${stoppageSuffix(pred.stoppage)}${predAdvanced ? `, passa ${teamText(predAdvanced)}` : ""}` : "Sem palpite";
+      const resultText = game.result ? `Resultado: ${game.result.home} x ${game.result.away}${stoppageSuffix(game.result.stoppage)}${game.advancedTeam ? `, passou ${teamText(game.advancedTeam)}` : ""}` : `Prazo: ${dateLabel(new Date(deadline).toISOString())} (${timeLeft(deadline - Date.now())})`;
       return `
         <article class="game-card">
           <div class="game-top">
@@ -2117,6 +2152,16 @@
               </div>
             </div>
           </div>
+          <p class="mini">Placar final dos 90 min + acrescimos. Opcionalmente, detalhe abaixo quantos gols sairam nos acrescimos.</p>
+          <div class="form-row">
+            <label>Acrescimos ${escapeHtml(teamText(game.homeTeam))}
+              <input id="predStoppageHome" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "home")}" ${locked?"disabled":""}>
+            </label>
+            <label>Acrescimos ${escapeHtml(teamText(game.awayTeam))}
+              <input id="predStoppageAway" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "away")}" ${locked?"disabled":""}>
+            </label>
+          </div>
+          <p class="mini">Exemplo: jogo 1 x 2 com gol do visitante nos acrescimos: placar final 1 x 2 e acrescimos 0 x 1.</p>
           ${game.type === "knockout" ? `
             <div class="form-row">
               <label>Vai para prorrogacao?
@@ -2147,6 +2192,8 @@
       if (homeInput === "" || awayInput === "") return toast(`Voce esqueceu de colocar o placar de ${teamText(game.homeTeam)} x ${teamText(game.awayTeam)}`);
       if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) return toast("Use gols inteiros e maiores ou iguais a zero");
       if (home > 30 || away > 30) return toast("Confira o placar: gols muito altos parecem erro");
+      const stoppageDraft = readOptionalStoppage("predStoppageHome", "predStoppageAway", home, away);
+      if (stoppageDraft.error) return toast(stoppageDraft.error);
       const user = state.session.name;
       state.data.predictions[user] ||= {};
       const pred = {
@@ -2156,6 +2203,7 @@
         advancedTeam: game.type === "knockout" ? document.getElementById("predAdvanced").value : null,
         submittedAt: new Date().toISOString()
       };
+      if (stoppageDraft.stoppage) pred.stoppage = stoppageDraft.stoppage;
       if (game.type === "knockout") {
         if (home === away && !pred.overtime) return toast("Se o mata-mata empatar nos 90 min + acrescimos, marque prorrogacao: Sim");
         if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min + acrescimos terminarem empatados");
@@ -2189,7 +2237,7 @@
       const me = scores().find(s => s.name === user) || { total: 0, exact: 0, correct: 0, made: 0 };
       const hitRows = state.data.games.map(g => ({ game: g, pred: getPred(user, g.id) })).filter(x => x.pred && x.game.result).map(x => {
         const s = scorePrediction(x.game, x.pred);
-        return `<tr><td>${x.game.id}</td><td>${teamLabel(x.game.homeTeam)} x ${teamLabel(x.game.awayTeam)}</td><td>${x.pred.home} x ${x.pred.away}</td><td>${s.points}</td></tr>`;
+        return `<tr><td>${x.game.id}</td><td>${teamLabel(x.game.homeTeam)} x ${teamLabel(x.game.awayTeam)}</td><td>${x.pred.home} x ${x.pred.away}${stoppageSuffix(x.pred.stoppage)}</td><td>${s.points}</td></tr>`;
       }).join("");
       document.getElementById("performance").innerHTML = `
         <div class="panel">
@@ -2346,6 +2394,11 @@
               <input id="resHome" type="number" min="0" placeholder="Gols mandante">
               <input id="resAway" type="number" min="0" placeholder="Gols visitante">
             </div>
+            <p class="mini">Opcional: gols que sairam nos acrescimos, dentro do placar final acima.</p>
+            <div class="form-row">
+              <input id="resStoppageHome" type="number" min="0" placeholder="Acrescimos mandante">
+              <input id="resStoppageAway" type="number" min="0" placeholder="Acrescimos visitante">
+            </div>
             <div class="form-row">
               <select id="wentOvertime"><option value="false">Nao foi para prorrogacao</option><option value="true">Foi para prorrogacao</option></select>
               <select id="advancedTeam"></select>
@@ -2381,6 +2434,8 @@
       document.getElementById("adminAway").value = game.awayTeam;
       document.getElementById("resHome").value = game.result?.home ?? "";
       document.getElementById("resAway").value = game.result?.away ?? "";
+      document.getElementById("resStoppageHome").value = stoppageInputValue(game.result?.stoppage, "home");
+      document.getElementById("resStoppageAway").value = stoppageInputValue(game.result?.stoppage, "away");
       document.getElementById("wentOvertime").value = String(!!game.wentOvertime);
       document.getElementById("advancedTeam").innerHTML = `<option value="${escapeHtml(game.homeTeam)}">${escapeHtml(teamText(game.homeTeam))}</option><option value="${escapeHtml(game.awayTeam)}">${escapeHtml(teamText(game.awayTeam))}</option>`;
       document.getElementById("advancedTeam").value = game.advancedTeam || game.homeTeam;
@@ -2401,6 +2456,8 @@
       if (home === "" || away === "") return { error: `Voce esqueceu de colocar o placar de ${teamText(homeTeam)} x ${teamText(awayTeam)}` };
       if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) return { error: "Resultado precisa ter gols inteiros e maiores ou iguais a zero" };
       if (homeScore > 30 || awayScore > 30) return { error: "Confira o resultado: gols muito altos parecem erro" };
+      const stoppageDraft = readOptionalStoppage("resStoppageHome", "resStoppageAway", homeScore, awayScore);
+      if (stoppageDraft.error) return { error: stoppageDraft.error };
       let wentOvertime = false;
       let advancedTeam = null;
       if (game.type === "knockout") {
@@ -2412,7 +2469,7 @@
           : document.getElementById("advancedTeam").value;
         if (![homeTeam, awayTeam].includes(advancedTeam)) return { error: "Escolha quem passou depois de atualizar os times" };
       }
-      return { game, homeTeam, awayTeam, homeScore, awayScore, wentOvertime, advancedTeam };
+      return { game, homeTeam, awayTeam, homeScore, awayScore, stoppage: stoppageDraft.stoppage, wentOvertime, advancedTeam };
     }
 
     function applyResultDraftToData(data, draft) {
@@ -2421,6 +2478,7 @@
       game.homeTeam = draft.homeTeam;
       game.awayTeam = draft.awayTeam;
       game.result = { home: draft.homeScore, away: draft.awayScore };
+      if (draft.stoppage) game.result.stoppage = draft.stoppage;
       game.status = "finished";
       if (game.type === "knockout") {
         game.wentOvertime = draft.wentOvertime;
@@ -2444,9 +2502,9 @@
         .slice(0, 5);
       const predictionCount = state.data.participants.filter(name => getPred(name, draft.game.id)).length;
       const previous = draft.game.result
-        ? `${draft.game.result.home} x ${draft.game.result.away}${draft.game.advancedTeam ? `, passou ${teamText(draft.game.advancedTeam)}` : ""}`
+        ? `${draft.game.result.home} x ${draft.game.result.away}${stoppageSuffix(draft.game.result.stoppage)}${draft.game.advancedTeam ? `, passou ${teamText(draft.game.advancedTeam)}` : ""}`
         : "sem resultado";
-      const next = `${draft.homeScore} x ${draft.awayScore}${draft.advancedTeam ? `, passa ${teamText(draft.advancedTeam)}` : ""}`;
+      const next = `${draft.homeScore} x ${draft.awayScore}${stoppageSuffix(draft.stoppage)}${draft.advancedTeam ? `, passa ${teamText(draft.advancedTeam)}` : ""}`;
       return {
         previous,
         next,
@@ -2715,7 +2773,7 @@
       const rows = state.data.participants.map(p => {
         const pred = getPred(p, gameId);
         const predAdvanced = predictedAdvancedTeam(game, pred);
-        return `<tr><td>${escapeHtml(p)}</td><td>${pred ? `${pred.home} x ${pred.away}` : "Sem palpite"}</td><td>${predAdvanced ? escapeHtml(teamText(predAdvanced)) : ""}</td></tr>`;
+        return `<tr><td>${escapeHtml(p)}</td><td>${pred ? `${pred.home} x ${pred.away}${stoppageSuffix(pred.stoppage)}` : "Sem palpite"}</td><td>${predAdvanced ? escapeHtml(teamText(predAdvanced)) : ""}</td></tr>`;
       }).join("");
       document.getElementById("adminPreview").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Palpite</th><th>Passa</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
