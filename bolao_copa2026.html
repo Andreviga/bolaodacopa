@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.25.9";
+    const APP_VERSION = "2026.06.28.1";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -1361,6 +1361,12 @@
     function gameDeadline(game) { return new Date(game.datetime).getTime() - 60 * 60 * 1000; }
     function isLocked(game) { return Date.now() >= gameDeadline(game); }
     function getPred(user, gameId) { return state.data.predictions[user]?.[gameId] || null; }
+    function predictedAdvancedTeam(game, pred) {
+      if (!game || game.type !== "knockout" || !pred) return null;
+      if (pred.home > pred.away) return game.homeTeam;
+      if (pred.away > pred.home) return game.awayTeam;
+      return pred.advancedTeam || null;
+    }
     function gameWinner(game) {
       if (!game?.result) return null;
       if (game.type === "knockout" && game.advancedTeam) return game.advancedTeam;
@@ -1435,7 +1441,7 @@
           const source = game[sourceKey];
           const resolved = resolveTeamSource(source, gameById, groupRanks);
           const nextTeam = resolved || (isDynamicTeamSource(source) ? source : game[teamKey]);
-          if (nextTeam && game[teamKey] !== nextTeam) {
+          if (nextTeam && game[teamKey] !== nextTeam && (!isPlaceholderTeam(nextTeam) || isPlaceholderTeam(game[teamKey]))) {
             game[teamKey] = nextTeam;
             changes += 1;
           }
@@ -1734,7 +1740,8 @@
         else if (realSign === predSign) points = Number(score.groupResult) || 0;
         if (realSign === predSign) correct = 1;
       } else {
-        const advancedOk = pred.advancedTeam && game.advancedTeam && pred.advancedTeam === game.advancedTeam;
+        const predAdvanced = predictedAdvancedTeam(game, pred);
+        const advancedOk = predAdvanced && game.advancedTeam && predAdvanced === game.advancedTeam;
         if (exact) points = Number(score.knockoutExact) || 0;
         else if (realSign === predSign && totalOk) points = Number(score.knockoutResultTotal) || 0;
         else if (realSign !== 0 && realSign === predSign) points = Number(score.knockoutResult) || 0;
@@ -2058,7 +2065,8 @@
       const locked = isLocked(game);
       const deadline = gameDeadline(game);
       const status = game.result ? ["good","Resultado lancado"] : locked ? ["bad","Prazo encerrado"] : pred ? ["good","Palpitado"] : ["warn","Pendente"];
-      const predText = pred ? `Palpite: ${pred.home} x ${pred.away}${game.type === "knockout" && pred.advancedTeam ? `, passa ${teamText(pred.advancedTeam)}` : ""}` : "Sem palpite";
+      const predAdvanced = predictedAdvancedTeam(game, pred);
+      const predText = pred ? `Palpite: ${pred.home} x ${pred.away}${predAdvanced ? `, passa ${teamText(predAdvanced)}` : ""}` : "Sem palpite";
       const resultText = game.result ? `Resultado: ${game.result.home} x ${game.result.away}${game.advancedTeam ? `, passou ${teamText(game.advancedTeam)}` : ""}` : `Prazo: ${dateLabel(new Date(deadline).toISOString())} (${timeLeft(deadline - Date.now())})`;
       return `
         <article class="game-card">
@@ -2078,7 +2086,10 @@
 
     function openPrediction(gameId) {
       const game = state.data.games.find(g => g.id === gameId);
-      const pred = getPred(state.session.name, gameId) || { home: 0, away: 0, overtime: false, advancedTeam: game.homeTeam };
+      const savedPred = getPred(state.session.name, gameId);
+      const pred = savedPred
+        ? { ...savedPred, advancedTeam: predictedAdvancedTeam(game, savedPred) || savedPred.advancedTeam || game.homeTeam }
+        : { home: 0, away: 0, overtime: false, advancedTeam: game.homeTeam };
       const locked = isLocked(game);
       const modal = document.getElementById("games");
       modal.innerHTML = `
@@ -2145,9 +2156,10 @@
         submittedAt: new Date().toISOString()
       };
       if (game.type === "knockout") {
-        if (!pred.advancedTeam) return toast("Escolha quem passa no mata-mata");
         if (home === away && !pred.overtime) return toast("Se o mata-mata empatar nos 90 min, marque prorrogacao: Sim");
         if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se os 90 min terminarem empatados");
+        if (home !== away) pred.advancedTeam = home > away ? game.homeTeam : game.awayTeam;
+        if (!pred.advancedTeam) return toast("Escolha quem passa no mata-mata");
       }
       rememberPrediction(state.data, user, gameId, pred);
       saveData({ preserveRemoteParticipants: true });
@@ -2394,11 +2406,10 @@
         wentOvertime = document.getElementById("wentOvertime").value === "true";
         if (homeScore === awayScore && !wentOvertime) return { error: "Se empatou nos 90 min, marque que foi para prorrogacao" };
         if (homeScore !== awayScore && wentOvertime) return { error: "Prorrogacao so acontece se os 90 min terminaram empatados" };
-        advancedTeam = document.getElementById("advancedTeam").value;
-        if (![homeTeam, awayTeam].includes(advancedTeam)) {
-          if (homeScore !== awayScore) advancedTeam = homeScore > awayScore ? homeTeam : awayTeam;
-          else return { error: "Escolha quem passou depois de atualizar os times" };
-        }
+        advancedTeam = homeScore !== awayScore
+          ? (homeScore > awayScore ? homeTeam : awayTeam)
+          : document.getElementById("advancedTeam").value;
+        if (![homeTeam, awayTeam].includes(advancedTeam)) return { error: "Escolha quem passou depois de atualizar os times" };
       }
       return { game, homeTeam, awayTeam, homeScore, awayScore, wentOvertime, advancedTeam };
     }
@@ -2699,9 +2710,11 @@
 
     function viewGamePredictions() {
       const gameId = document.getElementById("adminGame").value;
+      const game = state.data.games.find(g => g.id === gameId);
       const rows = state.data.participants.map(p => {
         const pred = getPred(p, gameId);
-        return `<tr><td>${escapeHtml(p)}</td><td>${pred ? `${pred.home} x ${pred.away}` : "Sem palpite"}</td><td>${pred?.advancedTeam ? escapeHtml(teamText(pred.advancedTeam)) : ""}</td></tr>`;
+        const predAdvanced = predictedAdvancedTeam(game, pred);
+        return `<tr><td>${escapeHtml(p)}</td><td>${pred ? `${pred.home} x ${pred.away}` : "Sem palpite"}</td><td>${predAdvanced ? escapeHtml(teamText(predAdvanced)) : ""}</td></tr>`;
       }).join("");
       document.getElementById("adminPreview").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Nome</th><th>Palpite</th><th>Passa</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }

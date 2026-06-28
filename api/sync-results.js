@@ -7,13 +7,32 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
   "sb_publishable_x2IRZsjc6rBglzY9lOQ4vQ_xAyTN7DT";
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || "bolao_state";
 const SUPABASE_ROW_ID = process.env.SUPABASE_ROW_ID || "copa2026-familia";
-const SYNC_VERSION = "2026.06.25.9";
+const SYNC_VERSION = "2026.06.28.1";
 const FINAL_STATUSES = new Set(["FT", "AET", "PEN"]);
 
 function countNested(obj) {
   return obj ? Object.values(obj).reduce((total, value) => (
     total + (value && typeof value === "object" ? Object.keys(value).length : 0)
   ), 0) : 0;
+}
+
+function protectedCounts(data) {
+  return {
+    participants: (data.participants || []).length,
+    predictions: countNested(data.predictions),
+    archive: countNested(data.predictionArchive),
+    results: (data.games || []).filter(game => game.result).length
+  };
+}
+
+function assertProtectedCounts(before, after, phase) {
+  if (
+    before.participants !== after.participants ||
+    before.predictions !== after.predictions ||
+    before.archive !== after.archive
+  ) {
+    throw new Error(`PROTECTED_COUNTS_CHANGED_${phase} before=${JSON.stringify(before)} after=${JSON.stringify(after)}`);
+  }
 }
 
 function supabaseHeaders(extra = {}) {
@@ -276,12 +295,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const before = {
-      participants: (data.participants || []).length,
-      predictions: countNested(data.predictions),
-      archive: countNested(data.predictionArchive),
-      results: (data.games || []).filter(game => game.result).length
-    };
+    const before = protectedCounts(data);
 
     const oldUpdatedAt = data.meta?.updatedAt || "";
     const { updates, conflicts } = applyMatches(matches, data);
@@ -303,21 +317,11 @@ module.exports = async function handler(req, res) {
     data.meta.version = SYNC_VERSION;
     data.meta.updatedAt = new Date().toISOString();
 
-    const after = await patchBackendData(data, oldUpdatedAt);
-    const protectedAfter = {
-      participants: (after.participants || []).length,
-      predictions: countNested(after.predictions),
-      archive: countNested(after.predictionArchive),
-      results: (after.games || []).filter(game => game.result).length
-    };
+    assertProtectedCounts(before, protectedCounts(data), "BEFORE_PATCH");
 
-    if (
-      before.participants !== protectedAfter.participants ||
-      before.predictions !== protectedAfter.predictions ||
-      before.archive !== protectedAfter.archive
-    ) {
-      throw new Error(`PROTECTED_COUNTS_CHANGED before=${JSON.stringify(before)} after=${JSON.stringify(protectedAfter)}`);
-    }
+    const after = await patchBackendData(data, oldUpdatedAt);
+    const protectedAfter = protectedCounts(after);
+    assertProtectedCounts(before, protectedAfter, "AFTER_PATCH");
 
     sendJson(res, 200, {
       ok: true,
