@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.28.5";
+    const APP_VERSION = "2026.06.28.6";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -1382,6 +1382,25 @@
       }
       return { stoppage: { home, away } };
     }
+    function scoreWithoutExtraTime(home, away, extra) {
+      return hasStoppageScore(extra)
+        ? { home: home - extra.home, away: away - extra.away }
+        : { home, away };
+    }
+    function knockoutTimingError(home, away, overtime, extra) {
+      const hasExtra = hasStoppageScore(extra);
+      const extraGoals = hasExtra ? extra.home + extra.away : 0;
+      if (!overtime && extraGoals > 0) return "Se preencher gols da prorrogacao, marque prorrogacao: Sim";
+      if (!overtime && home === away) return "Se o mata-mata empatar, marque prorrogacao: Sim";
+      if (overtime) {
+        if (home !== away && !hasExtra) return "Se a prorrogacao mudou o placar final, preencha os gols da prorrogacao";
+        const normalTime = scoreWithoutExtraTime(home, away, extra);
+        if (normalTime.home !== normalTime.away) {
+          return "Prorrogacao so acontece se o tempo normal terminou empatado. Confira placar final e gols da prorrogacao.";
+        }
+      }
+      return "";
+    }
     function predictedAdvancedTeam(game, pred) {
       if (!game || game.type !== "knockout" || !pred) return null;
       if (pred.home > pred.away) return game.homeTeam;
@@ -2117,7 +2136,7 @@
       const game = state.data.games.find(g => g.id === gameId);
       const savedPred = getPred(state.session.name, gameId);
       const pred = savedPred
-        ? { ...savedPred, advancedTeam: predictedAdvancedTeam(game, savedPred) || savedPred.advancedTeam || game.homeTeam }
+        ? { ...savedPred, overtime: savedPred.overtime || hasStoppageScore(savedPred.stoppage), advancedTeam: predictedAdvancedTeam(game, savedPred) || savedPred.advancedTeam || game.homeTeam }
         : { home: 0, away: 0, overtime: false, advancedTeam: game.homeTeam };
       const locked = isLocked(game);
       const modal = document.getElementById("games");
@@ -2146,17 +2165,17 @@
               </div>
             </div>
           </div>
-          <p class="mini">Placar final do jogo. Opcionalmente, detalhe abaixo quantos gols sairam na prorrogacao.</p>
-          <div class="form-row">
-            <label>Prorrogacao ${escapeHtml(teamText(game.homeTeam))}
-              <input id="predStoppageHome" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "home")}" ${locked?"disabled":""}>
-            </label>
-            <label>Prorrogacao ${escapeHtml(teamText(game.awayTeam))}
-              <input id="predStoppageAway" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "away")}" ${locked?"disabled":""}>
-            </label>
-          </div>
-          <p class="mini">Exemplo: jogo 1 x 2 com gol do visitante na prorrogacao: placar final 1 x 2 e prorrogacao 0 x 1.</p>
           ${game.type === "knockout" ? `
+            <p class="mini">Placar final do jogo. Se for para prorrogacao, detalhe abaixo quantos gols sairam nela.</p>
+            <div class="form-row">
+              <label>Prorrogacao ${escapeHtml(teamText(game.homeTeam))}
+                <input id="predStoppageHome" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "home")}" ${locked?"disabled":""}>
+              </label>
+              <label>Prorrogacao ${escapeHtml(teamText(game.awayTeam))}
+                <input id="predStoppageAway" type="number" min="0" placeholder="opcional" value="${stoppageInputValue(pred.stoppage, "away")}" ${locked?"disabled":""}>
+              </label>
+            </div>
+            <p class="mini">Exemplo: tempo normal 1 x 1, prorrogacao 0 x 1, placar final 1 x 2.</p>
             <div class="form-row">
               <label>Vai para prorrogacao?
                 <select id="predOvertime" ${locked?"disabled":""}>
@@ -2186,7 +2205,7 @@
       if (homeInput === "" || awayInput === "") return toast(`Voce esqueceu de colocar o placar de ${teamText(game.homeTeam)} x ${teamText(game.awayTeam)}`);
       if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) return toast("Use gols inteiros e maiores ou iguais a zero");
       if (home > 30 || away > 30) return toast("Confira o placar: gols muito altos parecem erro");
-      const stoppageDraft = readOptionalStoppage("predStoppageHome", "predStoppageAway", home, away);
+      const stoppageDraft = game.type === "knockout" ? readOptionalStoppage("predStoppageHome", "predStoppageAway", home, away) : { stoppage: null };
       if (stoppageDraft.error) return toast(stoppageDraft.error);
       const user = state.session.name;
       state.data.predictions[user] ||= {};
@@ -2199,8 +2218,9 @@
       };
       if (stoppageDraft.stoppage) pred.stoppage = stoppageDraft.stoppage;
       if (game.type === "knockout") {
-        if (home === away && !pred.overtime) return toast("Se o mata-mata empatar no tempo normal, marque prorrogacao: Sim");
-        if (home !== away && pred.overtime) return toast("Prorrogacao so acontece se o tempo normal terminar empatado");
+        if (stoppageDraft.stoppage) pred.overtime = true;
+        const timingError = knockoutTimingError(home, away, pred.overtime, stoppageDraft.stoppage);
+        if (timingError) return toast(timingError);
         if (home !== away) pred.advancedTeam = home > away ? game.homeTeam : game.awayTeam;
         if (!pred.advancedTeam) return toast("Escolha quem passa no mata-mata");
       }
@@ -2396,14 +2416,16 @@
               <input id="resHome" type="number" min="0" placeholder="Gols mandante">
               <input id="resAway" type="number" min="0" placeholder="Gols visitante">
             </div>
-            <p class="mini">Opcional: gols que sairam na prorrogacao, dentro do placar final acima.</p>
-            <div class="form-row">
-              <input id="resStoppageHome" type="number" min="0" placeholder="Prorrogacao mandante">
-              <input id="resStoppageAway" type="number" min="0" placeholder="Prorrogacao visitante">
-            </div>
-            <div class="form-row">
-              <select id="wentOvertime"><option value="false">Nao foi para prorrogacao</option><option value="true">Foi para prorrogacao</option></select>
-              <select id="advancedTeam"></select>
+            <div id="adminOvertimeBlock">
+              <p class="mini">Opcional: gols que sairam na prorrogacao, dentro do placar final acima.</p>
+              <div class="form-row">
+                <input id="resStoppageHome" type="number" min="0" placeholder="Prorrogacao mandante">
+                <input id="resStoppageAway" type="number" min="0" placeholder="Prorrogacao visitante">
+              </div>
+              <div class="form-row">
+                <select id="wentOvertime"><option value="false">Nao foi para prorrogacao</option><option value="true">Foi para prorrogacao</option></select>
+                <select id="advancedTeam"></select>
+              </div>
             </div>
             <div class="actions">
               <button onclick="previewResultImpact()">Previa antes de salvar</button>
@@ -2441,6 +2463,8 @@
       document.getElementById("wentOvertime").value = String(!!game.wentOvertime);
       document.getElementById("advancedTeam").innerHTML = `<option value="${escapeHtml(game.homeTeam)}">${escapeHtml(teamText(game.homeTeam))}</option><option value="${escapeHtml(game.awayTeam)}">${escapeHtml(teamText(game.awayTeam))}</option>`;
       document.getElementById("advancedTeam").value = game.advancedTeam || game.homeTeam;
+      const overtimeBlock = document.getElementById("adminOvertimeBlock");
+      if (overtimeBlock) overtimeBlock.style.display = game.type === "knockout" ? "" : "none";
       const preview = document.getElementById("resultPreview");
       if (preview) preview.innerHTML = "";
     }
@@ -2458,14 +2482,15 @@
       if (home === "" || away === "") return { error: `Voce esqueceu de colocar o placar de ${teamText(homeTeam)} x ${teamText(awayTeam)}` };
       if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) return { error: "Resultado precisa ter gols inteiros e maiores ou iguais a zero" };
       if (homeScore > 30 || awayScore > 30) return { error: "Confira o resultado: gols muito altos parecem erro" };
-      const stoppageDraft = readOptionalStoppage("resStoppageHome", "resStoppageAway", homeScore, awayScore);
+      const stoppageDraft = game.type === "knockout" ? readOptionalStoppage("resStoppageHome", "resStoppageAway", homeScore, awayScore) : { stoppage: null };
       if (stoppageDraft.error) return { error: stoppageDraft.error };
       let wentOvertime = false;
       let advancedTeam = null;
       if (game.type === "knockout") {
         wentOvertime = document.getElementById("wentOvertime").value === "true";
-        if (homeScore === awayScore && !wentOvertime) return { error: "Se empatou no tempo normal, marque que foi para prorrogacao" };
-        if (homeScore !== awayScore && wentOvertime) return { error: "Prorrogacao so acontece se o tempo normal terminou empatado" };
+        if (stoppageDraft.stoppage) wentOvertime = true;
+        const timingError = knockoutTimingError(homeScore, awayScore, wentOvertime, stoppageDraft.stoppage);
+        if (timingError) return { error: timingError };
         advancedTeam = homeScore !== awayScore
           ? (homeScore > awayScore ? homeTeam : awayTeam)
           : document.getElementById("advancedTeam").value;
