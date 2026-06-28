@@ -482,7 +482,7 @@
   </div>
 
   <script>
-    const APP_VERSION = "2026.06.28.8";
+    const APP_VERSION = "2026.06.28.9";
     const STORE_KEY = "bolaoCopa2026.v1";
     const PREDICTION_BACKUP_KEY = "bolaoPredictionBackup.v1";
     const BACKEND_CONFIG_KEY = "bolaoBackendConfig.v1";
@@ -645,7 +645,7 @@
         summary: [
           { id: "deadline", title: "Palpite fecha 1h antes", description: "Depois do prazo, o jogo fica bloqueado e quem nao palpitou recebe 0 ponto." },
           { id: "groups", title: "Fase de grupos", description: "Placar exato, resultado com total de gols e resultado correto valem pontos diferentes." },
-          { id: "knockout", title: "Mata-mata", description: "O palpite vale para o placar final informado; se terminar empatado, tambem conta quem passa." },
+          { id: "knockout", title: "Mata-mata", description: "Placar exato vale mesmo em empate; quem passa tambem pontua no mata-mata." },
           { id: "stoppage", title: "Gols na prorrogacao", description: "Opcional: se admin preencher os gols reais da prorrogacao, quem acertar esses gols ganha bonus." },
           { id: "ranking", title: "Ranking", description: "Empate no ranking desempata por placares exatos, acertos e ordem alfabetica." }
         ]
@@ -1783,13 +1783,13 @@
       } else {
         const predAdvanced = predictedAdvancedTeam(game, pred);
         const advancedOk = predAdvanced && game.advancedTeam && predAdvanced === game.advancedTeam;
-        exactHit = exact && (realSign !== 0 || advancedOk);
+        exactHit = exact;
         if (exactHit) points = Number(score.knockoutExact) || 0;
         else if (realSign !== 0 && realSign === predSign && totalOk) points = Number(score.knockoutResultTotal) || 0;
         else if (realSign !== 0 && realSign === predSign) points = Number(score.knockoutResult) || 0;
         else if (realSign === 0 && predSign === 0 && advancedOk) points = Number(score.knockoutDrawAdvanced) || 0;
         else if (advancedOk) points = Number(score.knockoutAdvanced) || 0;
-        if ((realSign !== 0 && realSign === predSign) || advancedOk) correct = 1;
+        if (exactHit || (realSign !== 0 && realSign === predSign) || advancedOk) correct = 1;
         if (pred.overtime === true && game.wentOvertime === true) points += Number(score.overtimeBonus) || 0;
       }
       if (
@@ -2192,7 +2192,7 @@
                 </select>
               </label>
             </div>` : `<p class="mini">Fase de grupos: empate e permitido.</p>`}
-          ${game.type === "knockout" ? `<p class="mini">Se o placar final empatar, quem passa tambem entra na pontuacao. Marque prorrogacao somente se o jogo empatar no tempo normal e for para tempo extra.</p>` : ""}
+          ${game.type === "knockout" ? `<p class="mini">Placar exato do empate vale mesmo se errar quem passa. Quem passa tambem pontua quando o placar nao for exato. Marque prorrogacao somente se o jogo empatar no tempo normal e for para tempo extra.</p>` : ""}
           <button class="success" style="width:100%" ${locked?"disabled":""} onclick="savePrediction('${game.id}')">Confirmar palpite</button>
         </div>`;
     }
